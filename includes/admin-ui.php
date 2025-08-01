@@ -191,3 +191,38 @@ function taptosell_enqueue_logout_warning_script() {
     wp_enqueue_script('taptosell-logout-warning', $script_url, ['jquery'], '1.0', true);
 }
 add_action('admin_enqueue_scripts', 'taptosell_enqueue_logout_warning_script');
+
+/**
+ * =================================================================
+ * REJECTION REASON UI (ADMIN-FACING)
+ * =================================================================
+ */
+
+// --- NEW: Add metabox for rejection reason ---
+function taptosell_add_rejection_reason_metabox() {
+    add_meta_box(
+        'taptosell_rejection_reason_metabox', // ID
+        'Product Rejection Reason',           // Title
+        'taptosell_rejection_reason_metabox_html', // Callback function to render the HTML
+        'product',                            // The post type where it will appear
+        'side',                               // Context (side, normal, advanced)
+        'high'                                // Priority
+    );
+}
+add_action('add_meta_boxes_product', 'taptosell_add_rejection_reason_metabox');
+
+/**
+ * Renders the HTML for the rejection reason metabox.
+ */
+function taptosell_rejection_reason_metabox_html($post) {
+    // Add a nonce for security
+    wp_nonce_field('taptosell_rejection_nonce_action', 'taptosell_rejection_nonce');
+
+    // Get the existing reason if it has been saved before
+    $reason = get_post_meta($post->ID, '_rejection_reason', true);
+
+    echo '<p>If rejecting, enter the reason here. This will be visible to the supplier.</p>';
+    echo '<textarea name="rejection_reason" style="width:100%; height: 100px;">' . esc_textarea($reason) . '</textarea>';
+    echo '<p class="description">After entering the reason, use the "Reject" button in the "Actions" column on the main Products list, or update the status manually.</p>';
+}
+

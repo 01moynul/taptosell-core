@@ -103,6 +103,9 @@ function taptosell_register_all_statuses() {
     register_post_status('wc-shipped', ['label' => _x('Shipped', 'Order status'),'public' => true,'show_in_admin_all_list' => true,'show_in_admin_status_list' => true,'label_count' => _n_noop('Shipped <span class="count">(%s)</span>', 'Shipped <span class="count">(%s)</span>'),]);
     register_post_status('wc-completed', ['label' => _x('Completed', 'Order status'),'public' => true,'show_in_admin_all_list' => true,'show_in_admin_status_list' => true,'label_count' => _n_noop('Completed <span class="count">(%s)</span>', 'Completed <span class="count">(%s)</span>'),]);
 
+    // --- NEW: PRODUCT REJECTION STATUS ---
+    register_post_status('rejected', ['label' => _x('Rejected', 'Product status'), 'public' => true, 'show_in_admin_all_list' => true, 'show_in_admin_status_list' => true, 'label_count' => _n_noop('Rejected <span class="count">(%s)</span>', 'Rejected <span class="count">(%s)</span>')]);
+
     // --- WITHDRAWAL STATUSES ---
     register_post_status('wd-pending', [
         'label'                     => _x('Pending', 'Withdrawal status'),

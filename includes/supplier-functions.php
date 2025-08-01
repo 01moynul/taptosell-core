@@ -203,7 +203,7 @@ function taptosell_product_upload_form_shortcode() {
 add_shortcode('supplier_product_upload_form', 'taptosell_product_upload_form_shortcode');
 
 
-// --- UPDATED (Stock): Shortcode for the supplier's "My Products" list ---
+// --- UPDATED (Rejection Workflow): Shortcode for the supplier's "My Products" list ---
 function taptosell_supplier_my_products_shortcode() {
     if ( ! is_user_logged_in() ) return '';
     $user = wp_get_current_user();
@@ -214,16 +214,14 @@ function taptosell_supplier_my_products_shortcode() {
     echo '<h2>My Product Submissions</h2>';
     if (isset($_GET['product_updated']) && $_GET['product_updated'] === 'true') { echo '<div style="background-color: #d4edda; color: #155724; padding: 15px; margin-bottom: 20px;">Product updated successfully!</div>'; }
 
-    $args = ['post_type' => 'product', 'author' => get_current_user_id(), 'posts_per_page' => -1, 'post_status' => ['publish', 'draft', 'pending']];
+    $args = ['post_type' => 'product', 'author' => get_current_user_id(), 'posts_per_page' => -1, 'post_status' => ['publish', 'draft', 'pending', 'rejected']];
     $product_query = new WP_Query($args);
     if ( $product_query->have_posts() ) {
-        // --- NEW (Stock): Add Stock column to table header ---
         echo '<table style="width: 100%; border-collapse: collapse;"><thead><tr><th>Image</th><th>Name</th><th>SKU</th><th>Stock</th><th>Category</th><th>Brands</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
         while ( $product_query->have_posts() ) {
             $product_query->the_post();
             $product_id = get_the_ID();
             $status = get_post_status($product_id);
-            // --- NEW (Stock): Get the stock quantity ---
             $stock = get_post_meta($product_id, '_stock_quantity', true);
             $category_terms = get_the_terms($product_id, 'product_category');
             $brand_terms = get_the_terms($product_id, 'brand');
@@ -234,22 +232,36 @@ function taptosell_supplier_my_products_shortcode() {
             echo '<td>' . get_the_post_thumbnail($product_id, [60, 60]) . '</td>';
             echo '<td>' . get_the_title() . '</td>';
             echo '<td>' . esc_html(get_post_meta($product_id, '_sku', true)) . '</td>';
-            // --- NEW (Stock): Display the stock quantity ---
             echo '<td>' . (is_numeric($stock) ? esc_html($stock) : 'N/A') . '</td>';
             echo '<td>' . esc_html($category_name) . '</td>';
             echo '<td>' . (empty($brand_names) ? '—' : esc_html(implode(', ', $brand_names))) . '</td>';
             echo '<td>';
-            if ($status === 'publish') { echo '<span style="background-color: #d4edda; color: #155724;">Approved</span>'; } 
-            else { echo '<span style="background-color: #fff3cd; color: #856404;">Pending Review</span>'; }
+            
+            if ($status === 'publish') {
+                echo '<span style="background-color: #d4edda; color: #155724; padding: 3px 8px; border-radius: 4px;">Approved</span>';
+            } elseif ($status === 'rejected') {
+                echo '<span style="background-color: #f8d7da; color: #721c24; padding: 3px 8px; border-radius: 4px;">Rejected</span>';
+                // --- NEW: Display the rejection reason ---
+                $reason = get_post_meta($product_id, '_rejection_reason', true);
+                if (!empty($reason)) {
+                    echo '<br><small style="color: #721c24;"><em>Reason: ' . esc_html($reason) . '</em></small>';
+                }
+            } else { // Covers 'draft' and 'pending'
+                echo '<span style="background-color: #fff3cd; color: #856404; padding: 3px 8px; border-radius: 4px;">Pending Review</span>';
+            }
+
             echo '</td>';
             echo '<td>';
-            if ($status === 'draft' || $status === 'pending') {
+            
+            if ($status === 'draft' || $status === 'pending' || $status === 'rejected') {
                 $edit_page = get_page_by_title('Edit Product');
                 if ($edit_page) {
-                    $edit_link = add_query_arg('product_id', $product_id, get_permalink($edit_page->ID));
+                    $edit_link = add_query_arg('product_id', get_the_ID(), get_permalink($edit_page->ID));
                     echo '<a href="' . esc_url($edit_link) . '">Edit</a>';
                 }
-            } else { echo '—'; }
+            } else {
+                echo '—';
+            }
             echo '</td></tr>';
         }
         echo '</tbody></table>';

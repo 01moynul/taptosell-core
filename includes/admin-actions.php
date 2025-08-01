@@ -73,15 +73,18 @@ function taptosell_handle_product_approval_actions() {
         exit();
     }
 
-    // --- Handle Reject Action ---
+    // --- UPDATED: Handle Reject Action ---
     if (isset($_GET['action']) && $_GET['action'] === 'taptosell_reject_product') {
         $post_id = (int)$_GET['product_id'];
 
         // Verify the nonce for security.
         check_admin_referer('taptosell_product_action_' . $post_id);
 
-        // Move the post to the trash.
-        wp_trash_post($post_id);
+        // Instead of trashing, update the post status to 'rejected'.
+        wp_update_post([
+            'ID' => $post_id,
+            'post_status' => 'rejected'
+        ]);
         
         // Redirect back to the products list.
         wp_redirect(admin_url('edit.php?post_type=product'));
@@ -259,3 +262,30 @@ function taptosell_handle_withdrawal_processing() {
     }
 }
 add_action('admin_init', 'taptosell_handle_withdrawal_processing');
+
+/**
+ * Saves the rejection reason when a product is updated in the admin panel.
+ */
+function taptosell_save_rejection_reason($post_id) {
+    // Check if our nonce is set and verified.
+    if ( !isset($_POST['taptosell_rejection_nonce']) || !wp_verify_nonce($_POST['taptosell_rejection_nonce'], 'taptosell_rejection_nonce_action') ) {
+        return;
+    }
+
+    // Check if the current user has permission to edit the post.
+    if ( !current_user_can('edit_post', $post_id) ) {
+        return;
+    }
+
+    // Check if our rejection reason field is set in the form submission.
+    if ( isset($_POST['rejection_reason']) ) {
+        // Sanitize the input and update the post meta field.
+        update_post_meta(
+            $post_id,
+            '_rejection_reason',
+            sanitize_textarea_field($_POST['rejection_reason'])
+        );
+    }
+}
+// Hook into the save_post action for the 'product' post type.
+add_action('save_post_product', 'taptosell_save_rejection_reason');
