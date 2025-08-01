@@ -30,6 +30,7 @@ require_once TAPTOSELL_CORE_PATH . 'includes/admin-actions.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/dropshipper-functions.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/wallet-functions.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/admin-settings-page.php';
+require_once TAPTOSELL_CORE_PATH . 'includes/admin-price-requests.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/helpers.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/api-shopee.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/subscription-functions.php';

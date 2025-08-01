@@ -278,7 +278,7 @@ function taptosell_supplier_my_products_shortcode() {
 add_shortcode('supplier_my_products', 'taptosell_supplier_my_products_shortcode');
 
 
-// --- UPDATED (Post-Approval Edit Fix): Shortcode for the EDIT product form ---
+// --- UPDATED (Price Request): Shortcode for the EDIT product form ---
 function taptosell_product_edit_form_shortcode() {
     if ( !is_user_logged_in() || !current_user_can('edit_posts') ) { return '<p>You do not have permission to view this content.</p>'; }
     if (!isset($_GET['product_id'])) { return '<p>No product selected. Go back to your <a href="/supplier-dashboard">dashboard</a> to select a product to edit.</p>'; }
@@ -309,6 +309,12 @@ function taptosell_product_edit_form_shortcode() {
     $video_url = get_post_meta($product_id, '_video_url', true);
     
     ob_start();
+
+    // --- NEW: Show a success message if a price request was submitted ---
+    if (isset($_GET['price_request']) && $_GET['price_request'] === 'success') {
+        echo '<div style="background-color: #d4edda; color: #155724; padding: 15px; margin-bottom: 20px;">Your price change request has been submitted for review.</div>';
+    }
+
     ?>
     <h3>Edit Product: <?php echo esc_html($product->post_title); ?></h3>
     <form id="edit-product-form" method="post" action="">
@@ -319,24 +325,14 @@ function taptosell_product_edit_form_shortcode() {
             <label for="product_description">Product Description</label><br />
             <?php
             wp_editor($product->post_content, 'product_description', [
-                'textarea_name' => 'product_description',
-                'media_buttons' => false,
-                'textarea_rows' => 10,
-                'teeny'         => true,
-                'editor_css'    => $is_approved ? '<style>.wp-editor-container{background-color:#f0f0f0;}</style>' : '',
-                'tinymce'       => !$is_approved,
-                'quicktags'     => !$is_approved,
+                'textarea_name' => 'product_description', 'media_buttons' => false, 'textarea_rows' => 10,
+                'teeny' => true, 'editor_css' => $is_approved ? '<style>.wp-editor-container{background-color:#f0f0f0;}</style>' : '',
+                'tinymce' => !$is_approved, 'quicktags' => !$is_approved,
             ]);
             ?>
         </div>
 
-        <p><label>Your Price (RM)</label><br />
-            <input type="number" step="0.01" value="<?php echo esc_attr($price); ?>" name="product_price" required <?php echo $readonly_attr; ?> />
-            <?php if ($is_approved): ?>
-                <br><small><em>To change the price, please submit a request below.</em></small>
-            <?php endif; ?>
-        </p>
-
+        <p><label>Your Price (RM)</label><br /><input type="number" step="0.01" value="<?php echo esc_attr($price); ?>" name="product_price" required <?php echo $readonly_attr; ?> /></p>
         <p><label>SKU</label><br /><input type="text" value="<?php echo esc_attr($sku); ?>" name="product_sku" required <?php echo $readonly_attr; ?> /></p>
         <p><label for="product_stock">Stock Quantity</label><br /><input type="number" step="1" id="product_stock" value="<?php echo esc_attr($stock); ?>" name="product_stock" required /></p>
 
@@ -353,20 +349,8 @@ function taptosell_product_edit_form_shortcode() {
 
         <p><label>Category</label><br />
         <?php 
-        // --- FIX: Build the arguments array for the dropdown ---
-        $cat_args = [
-            'taxonomy'         => 'product_category',
-            'name'             => 'product_category',
-            'show_option_none' => 'Select a Category',
-            'hierarchical'     => 1,
-            'required'         => true,
-            'hide_empty'       => 0,
-            'selected'         => $selected_category,
-        ];
-        // If the product is approved, add the 'disabled' attribute to the arguments array.
-        if ($is_approved) {
-            $cat_args['disabled'] = 'disabled';
-        }
+        $cat_args = [ 'taxonomy' => 'product_category', 'name' => 'product_category', 'show_option_none' => 'Select a Category', 'hierarchical' => 1, 'required' => true, 'hide_empty' => 0, 'selected' => $selected_category, ];
+        if ($is_approved) { $cat_args['disabled'] = 'disabled'; }
         wp_dropdown_categories($cat_args); 
         ?>
         </p>
@@ -375,7 +359,28 @@ function taptosell_product_edit_form_shortcode() {
         <?php wp_nonce_field('taptosell_edit_product', 'taptosell_product_edit_nonce'); ?>
         <p><input type="submit" value="Update Product" name="taptosell_update_product_submit" /></p>
     </form>
-    <?php
+
+    <?php 
+    // --- NEW: Add the Price Change Request Form for approved products ---
+    if ($is_approved): ?>
+    <hr style="margin: 40px 0;">
+    <div class="price-change-request-form">
+        <h3>Request a Price Change</h3>
+        <form method="post" action="">
+            <input type="hidden" name="product_id" value="<?php echo esc_attr($product_id); ?>">
+            <input type="hidden" name="old_price" value="<?php echo esc_attr($price); ?>">
+            <?php wp_nonce_field('taptosell_price_request_action', 'taptosell_price_request_nonce'); ?>
+            <p>
+                <label for="new_price">New Price (RM)</label><br/>
+                <input type="number" step="0.01" name="new_price" id="new_price" required>
+            </p>
+            <p>
+                <button type="submit" name="taptosell_action" value="request_price_change">Submit Request</button>
+            </p>
+        </form>
+    </div>
+    <?php endif;
+
     return ob_get_clean();
 }
 add_shortcode('supplier_edit_product_form', 'taptosell_product_edit_form_shortcode');
@@ -566,3 +571,53 @@ function taptosell_handle_order_fulfillment() {
     }
 }
 add_action('init', 'taptosell_handle_order_fulfillment');
+
+/**
+ * --- NEW: Handles the price change request form submission. ---
+ */
+function taptosell_handle_price_change_request() {
+    // Check if our specific form was submitted
+    if ( !isset($_POST['taptosell_action']) || $_POST['taptosell_action'] !== 'request_price_change' ) {
+        return;
+    }
+    // Security checks
+    if ( !isset($_POST['taptosell_price_request_nonce']) || !wp_verify_nonce($_POST['taptosell_price_request_nonce'], 'taptosell_price_request_action') ) {
+        wp_die('Security check failed!');
+    }
+    if ( !current_user_can('supplier') ) {
+        return;
+    }
+
+    // Get and sanitize data from the form
+    $product_id = (int)$_POST['product_id'];
+    $supplier_id = get_current_user_id();
+    $old_price = (float)$_POST['old_price'];
+    $new_price = (float)$_POST['new_price'];
+
+    // Basic validation
+    if ( $product_id <= 0 || $new_price <= 0 ) {
+        return;
+    }
+
+    // Insert the request into our new database table
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'taptosell_price_changes';
+    $wpdb->insert(
+        $table_name,
+        [
+            'product_id'   => $product_id,
+            'supplier_id'  => $supplier_id,
+            'old_price'    => $old_price,
+            'new_price'    => $new_price,
+            'request_date' => current_time('mysql'),
+            'status'       => 'pending'
+        ],
+        ['%d', '%d', '%f', '%f', '%s', '%s']
+    );
+
+    // Redirect back with a success message
+    $redirect_url = add_query_arg('price_request', 'success', wp_get_referer());
+    wp_redirect($redirect_url);
+    exit;
+}
+add_action('init', 'taptosell_handle_price_change_request');

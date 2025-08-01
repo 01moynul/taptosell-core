@@ -289,3 +289,60 @@ function taptosell_save_rejection_reason($post_id) {
 }
 // Hook into the save_post action for the 'product' post type.
 add_action('save_post_product', 'taptosell_save_rejection_reason');
+
+/**
+ * --- NEW: Handles the Approve/Reject actions for price change requests. ---
+ */
+function taptosell_handle_price_request_actions() {
+    // Check if the current user has permission to manage settings.
+    if (!current_user_can('manage_taptosell_settings')) {
+        return;
+    }
+
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'taptosell_price_changes';
+    $redirect_url = admin_url('admin.php?page=taptosell_price_requests');
+
+    // --- Handle Approve Action ---
+    if (isset($_GET['action']) && $_GET['action'] === 'taptosell_approve_price') {
+        $request_id = (int)$_GET['request_id'];
+        check_admin_referer('taptosell_approve_price_' . $request_id);
+
+        // Get the request details from the database
+        $request = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $request_id));
+
+        if ($request) {
+            // 1. Update the product's price (post meta)
+            update_post_meta($request->product_id, '_price', $request->new_price);
+
+            // 2. Update the status of the request in our custom table
+            $wpdb->update(
+                $table_name,
+                ['status' => 'approved'], // Data
+                ['id' => $request_id]     // Where
+            );
+        }
+        
+        // Redirect back with a success message
+        wp_redirect(add_query_arg('message', 'approved', $redirect_url));
+        exit();
+    }
+
+    // --- Handle Reject Action ---
+    if (isset($_GET['action']) && $_GET['action'] === 'taptosell_reject_price') {
+        $request_id = (int)$_GET['request_id'];
+        check_admin_referer('taptosell_reject_price_' . $request_id);
+
+        // Update the status of the request in our custom table
+        $wpdb->update(
+            $table_name,
+            ['status' => 'rejected'], // Data
+            ['id' => $request_id]     // Where
+        );
+        
+        // Redirect back with a success message
+        wp_redirect(add_query_arg('message', 'rejected', $redirect_url));
+        exit();
+    }
+}
+add_action('admin_init', 'taptosell_handle_price_request_actions');

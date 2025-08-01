@@ -36,7 +36,7 @@ function taptosell_add_custom_roles() {
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     $charset_collate = $wpdb->get_charset_collate();
 
-    // UPDATED: Table for Dropshipper SRPs and Product Links
+    // Table for Dropshipper SRPs and Product Links
     $srp_table_name = $wpdb->prefix . 'taptosell_dropshipper_products';
     $sql_srp = "CREATE TABLE $srp_table_name (
         id mediumint(9) NOT NULL AUTO_INCREMENT,
@@ -51,10 +51,25 @@ function taptosell_add_custom_roles() {
     ) $charset_collate;";
     dbDelta($sql_srp);
 
-    // Wallet Transactions Table (remains the same)
+    // Wallet Transactions Table
     $wallet_table_name = $wpdb->prefix . 'taptosell_wallet_transactions';
     $sql_wallet = "CREATE TABLE $wallet_table_name ( transaction_id bigint(20) NOT NULL AUTO_INCREMENT, user_id bigint(20) UNSIGNED NOT NULL, amount decimal(10,2) NOT NULL, type varchar(50) NOT NULL, details text, transaction_date datetime DEFAULT '0000-00-00 00:00:00' NOT NULL, PRIMARY KEY  (transaction_id), KEY user_id (user_id) ) $charset_collate;";
     dbDelta($sql_wallet);
+
+    // --- NEW: Table for Price Change Requests ---
+    $price_change_table_name = $wpdb->prefix . 'taptosell_price_changes';
+    $sql_price_changes = "CREATE TABLE $price_change_table_name (
+        id mediumint(9) NOT NULL AUTO_INCREMENT,
+        product_id bigint(20) UNSIGNED NOT NULL,
+        supplier_id bigint(20) UNSIGNED NOT NULL,
+        old_price decimal(10,2) NOT NULL,
+        new_price decimal(10,2) NOT NULL,
+        request_date datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
+        status varchar(20) DEFAULT 'pending' NOT NULL,
+        PRIMARY KEY  (id),
+        KEY product_id (product_id)
+    ) $charset_collate;";
+    dbDelta($sql_price_changes);
 }
 register_activation_hook( TAPTOSELL_CORE_PATH . 'taptosell-core.php', 'taptosell_add_custom_roles' );
 

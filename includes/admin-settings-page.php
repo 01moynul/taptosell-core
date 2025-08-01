@@ -28,6 +28,16 @@ function taptosell_add_admin_menu() {
         'taptosell_settings',       // Menu Slug (same as parent to make it the default)
         'taptosell_settings_page_html' // Function
     );
+
+    // --- NEW: Add the "Price Requests" submenu page ---
+    add_submenu_page(
+        'taptosell_settings',           // Parent Slug
+        'Price Change Requests',        // Page Title
+        'Price Requests',               // Menu Title
+        'manage_taptosell_settings',    // Capability
+        'taptosell_price_requests',     // Menu Slug
+        'taptosell_price_requests_page_html' // Display function (we will create this next)
+    );
 }
 add_action('admin_menu', 'taptosell_add_admin_menu');
 
