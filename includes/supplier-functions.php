@@ -32,7 +32,7 @@ function taptosell_supplier_dashboard_access() {
 add_action( 'template_redirect', 'taptosell_supplier_dashboard_access' );
 
 
-// --- Handler for the NEW product form ---
+// --- UPDATED (Stock): Handler for the NEW product form ---
 function taptosell_handle_product_upload() {
     if ( isset( $_POST['taptosell_new_product_submit'] ) && current_user_can('edit_posts') ) {
         if ( ! isset( $_POST['taptosell_product_nonce'] ) || ! wp_verify_nonce( $_POST['taptosell_product_nonce'], 'taptosell_add_product' ) ) { wp_die('Security check failed!'); }
@@ -40,19 +40,28 @@ function taptosell_handle_product_upload() {
         $product_title = sanitize_text_field($_POST['product_title']);
         $product_price = sanitize_text_field($_POST['product_price']);
         $product_sku = sanitize_text_field($_POST['product_sku']);
+        // --- NEW (Stock): Capture the stock quantity ---
+        $product_stock = isset($_POST['product_stock']) ? (int)$_POST['product_stock'] : 0;
         $product_category = isset($_POST['product_category']) ? (int)$_POST['product_category'] : 0;
         $product_brands = sanitize_text_field($_POST['product_brands']);
+        $product_description = isset($_POST['product_description']) ? wp_kses_post($_POST['product_description']) : '';
 
         if ( empty($product_title) || empty($product_price) || empty($product_sku) ) { return; }
 
         $product_id = wp_insert_post([
-            'post_title'   => $product_title, 'post_status'  => 'draft',
-            'post_type'    => 'product', 'post_author'  => get_current_user_id(),
+            'post_title'   => $product_title,
+            'post_content' => $product_description,
+            'post_status'  => 'draft',
+            'post_type'    => 'product',
+            'post_author'  => get_current_user_id(),
         ]);
 
         if ( $product_id && !is_wp_error($product_id) ) {
             update_post_meta($product_id, '_price', $product_price);
             update_post_meta($product_id, '_sku', $product_sku);
+            // --- NEW (Stock): Save stock quantity as post meta ---
+            update_post_meta($product_id, '_stock_quantity', $product_stock);
+
             if ($product_category > 0) { wp_set_post_terms($product_id, [$product_category], 'product_category'); }
             if (!empty($product_brands)) { wp_set_post_terms($product_id, $product_brands, 'brand'); }
             if ( ! empty( $_FILES['product_image']['name'] ) ) {
@@ -72,7 +81,7 @@ function taptosell_handle_product_upload() {
 }
 add_action('init', 'taptosell_handle_product_upload', 20);
 
-// --- NEW: Handler for the UPDATE product form ---
+// --- UPDATED (Stock): Handler for the UPDATE product form ---
 function taptosell_handle_product_update() {
     if ( isset( $_POST['taptosell_update_product_submit'] ) && current_user_can('edit_posts') ) {
         if ( ! isset( $_POST['taptosell_product_edit_nonce'] ) || ! wp_verify_nonce( $_POST['taptosell_product_edit_nonce'], 'taptosell_edit_product' ) ) { wp_die('Security check failed!'); }
@@ -80,17 +89,27 @@ function taptosell_handle_product_update() {
         $product_id = (int)$_POST['product_id'];
         $product_author_id = get_post_field('post_author', $product_id);
 
-        if ( get_current_user_id() != $product_author_id ) { wp_die('You do not have permission to edit this product.'); }
+        if ( get_current_user_id() != $product_author_id && !current_user_can('manage_options') ) { wp_die('You do not have permission to edit this product.'); }
 
         $product_title = sanitize_text_field($_POST['product_title']);
         $product_price = sanitize_text_field($_POST['product_price']);
         $product_sku = sanitize_text_field($_POST['product_sku']);
+        // --- NEW (Stock): Capture the stock quantity ---
+        $product_stock = isset($_POST['product_stock']) ? (int)$_POST['product_stock'] : 0;
         $product_category = isset($_POST['product_category']) ? (int)$_POST['product_category'] : 0;
         $product_brands = sanitize_text_field($_POST['product_brands']);
+        $product_description = isset($_POST['product_description']) ? wp_kses_post($_POST['product_description']) : '';
 
-        wp_update_post(['ID' => $product_id, 'post_title' => $product_title]);
+        wp_update_post([
+            'ID' => $product_id,
+            'post_title' => $product_title,
+            'post_content' => $product_description,
+        ]);
         update_post_meta($product_id, '_price', $product_price);
         update_post_meta($product_id, '_sku', $product_sku);
+        // --- NEW (Stock): Save stock quantity as post meta ---
+        update_post_meta($product_id, '_stock_quantity', $product_stock);
+
         if ($product_category > 0) { wp_set_post_terms($product_id, [$product_category], 'product_category'); }
         if (!empty($product_brands)) { wp_set_post_terms($product_id, $product_brands, 'brand', false); } else { wp_set_post_terms($product_id, '', 'brand'); }
 
@@ -103,7 +122,7 @@ function taptosell_handle_product_update() {
 }
 add_action('init', 'taptosell_handle_product_update', 20);
 
-// --- Shortcode for the NEW product form ---
+// --- UPDATED (Stock): Shortcode for the NEW product form ---
 function taptosell_product_upload_form_shortcode() {
     if ( !is_user_logged_in() || !current_user_can('edit_posts') ) { return '<p>You do not have permission to view this content.</p>'; }
     ob_start();
@@ -112,8 +131,24 @@ function taptosell_product_upload_form_shortcode() {
     <h3>Add a New Product</h3>
     <form id="new-product-form" method="post" action="" enctype="multipart/form-data">
         <p><label for="product_title">Product Name</label><br /><input type="text" id="product_title" value="" name="product_title" required /></p>
+        
+        <div style="margin-bottom: 20px;">
+            <label for="product_description">Product Description</label><br />
+            <?php
+            wp_editor('', 'product_description', [
+                'textarea_name' => 'product_description',
+                'media_buttons' => false,
+                'textarea_rows' => 10,
+                'teeny'         => true,
+            ]);
+            ?>
+        </div>
+
         <p><label for="product_price">Your Price (RM)</label><br /><input type="number" step="0.01" id="product_price" value="" name="product_price" required /></p>
         <p><label for="product_sku">SKU</label><br /><input type="text" id="product_sku" value="" name="product_sku" required /></p>
+        
+        <p><label for="product_stock">Stock Quantity</label><br /><input type="number" step="1" id="product_stock" value="" name="product_stock" required /></p>
+
         <p><label for="product_category">Category</label><br /><?php wp_dropdown_categories(['taxonomy' => 'product_category', 'name' => 'product_category', 'show_option_none' => 'Select a Category', 'hierarchical' => 1, 'required' => true, 'hide_empty' => 0]); ?></p>
         <p><label for="product_brands">Brands</label><br /><input type="text" id="product_brands" value="" name="product_brands" /><small>Enter brands separated by commas.</small></p>
         <p><label for="product_image">Image</label><br /><input type="file" id="product_image" name="product_image" accept="image/*" /></p>
@@ -126,7 +161,7 @@ function taptosell_product_upload_form_shortcode() {
 add_shortcode('supplier_product_upload_form', 'taptosell_product_upload_form_shortcode');
 
 
-// --- Shortcode for the supplier's "My Products" list ---
+// --- UPDATED (Stock): Shortcode for the supplier's "My Products" list ---
 function taptosell_supplier_my_products_shortcode() {
     if ( ! is_user_logged_in() ) return '';
     $user = wp_get_current_user();
@@ -140,19 +175,25 @@ function taptosell_supplier_my_products_shortcode() {
     $args = ['post_type' => 'product', 'author' => get_current_user_id(), 'posts_per_page' => -1, 'post_status' => ['publish', 'draft', 'pending']];
     $product_query = new WP_Query($args);
     if ( $product_query->have_posts() ) {
-        echo '<table style="width: 100%; border-collapse: collapse;"><thead><tr><th>Image</th><th>Name</th><th>SKU</th><th>Category</th><th>Brands</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+        // --- NEW (Stock): Add Stock column to table header ---
+        echo '<table style="width: 100%; border-collapse: collapse;"><thead><tr><th>Image</th><th>Name</th><th>SKU</th><th>Stock</th><th>Category</th><th>Brands</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
         while ( $product_query->have_posts() ) {
             $product_query->the_post();
-            $status = get_post_status();
-            $category_terms = get_the_terms(get_the_ID(), 'product_category');
-            $brand_terms = get_the_terms(get_the_ID(), 'brand');
+            $product_id = get_the_ID();
+            $status = get_post_status($product_id);
+            // --- NEW (Stock): Get the stock quantity ---
+            $stock = get_post_meta($product_id, '_stock_quantity', true);
+            $category_terms = get_the_terms($product_id, 'product_category');
+            $brand_terms = get_the_terms($product_id, 'brand');
             $category_name = (!empty($category_terms)) ? $category_terms[0]->name : '—';
             $brand_names = [];
             if (!empty($brand_terms)) { foreach ($brand_terms as $brand) { $brand_names[] = $brand->name; } }
             echo '<tr>';
-            echo '<td>' . get_the_post_thumbnail(get_the_ID(), [60, 60]) . '</td>';
+            echo '<td>' . get_the_post_thumbnail($product_id, [60, 60]) . '</td>';
             echo '<td>' . get_the_title() . '</td>';
-            echo '<td>' . esc_html(get_post_meta(get_the_ID(), '_sku', true)) . '</td>';
+            echo '<td>' . esc_html(get_post_meta($product_id, '_sku', true)) . '</td>';
+            // --- NEW (Stock): Display the stock quantity ---
+            echo '<td>' . (is_numeric($stock) ? esc_html($stock) : 'N/A') . '</td>';
             echo '<td>' . esc_html($category_name) . '</td>';
             echo '<td>' . (empty($brand_names) ? '—' : esc_html(implode(', ', $brand_names))) . '</td>';
             echo '<td>';
@@ -163,7 +204,7 @@ function taptosell_supplier_my_products_shortcode() {
             if ($status === 'draft' || $status === 'pending') {
                 $edit_page = get_page_by_title('Edit Product');
                 if ($edit_page) {
-                    $edit_link = add_query_arg('product_id', get_the_ID(), get_permalink($edit_page->ID));
+                    $edit_link = add_query_arg('product_id', $product_id, get_permalink($edit_page->ID));
                     echo '<a href="' . esc_url($edit_link) . '">Edit</a>';
                 }
             } else { echo '—'; }
@@ -177,7 +218,7 @@ function taptosell_supplier_my_products_shortcode() {
 add_shortcode('supplier_my_products', 'taptosell_supplier_my_products_shortcode');
 
 
-// --- NEW: Shortcode for the EDIT product form ---
+// --- UPDATED (Stock): Shortcode for the EDIT product form ---
 function taptosell_product_edit_form_shortcode() {
     if ( !is_user_logged_in() || !current_user_can('edit_posts') ) { return '<p>You do not have permission to view this content.</p>'; }
     if (!isset($_GET['product_id'])) { return '<p>No product selected. Go back to your <a href="/supplier-dashboard">dashboard</a> to select a product to edit.</p>'; }
@@ -191,6 +232,8 @@ function taptosell_product_edit_form_shortcode() {
     
     $price = get_post_meta($product_id, '_price', true);
     $sku = get_post_meta($product_id, '_sku', true);
+    // --- NEW (Stock): Get the stock quantity for the edit form ---
+    $stock = get_post_meta($product_id, '_stock_quantity', true);
     $category_terms = get_the_terms($product_id, 'product_category');
     $brand_terms = get_the_terms($product_id, 'brand');
     $selected_category = (!empty($category_terms)) ? $category_terms[0]->term_id : 0;
@@ -203,8 +246,24 @@ function taptosell_product_edit_form_shortcode() {
     <form id="edit-product-form" method="post" action="">
         <input type="hidden" name="product_id" value="<?php echo esc_attr($product_id); ?>">
         <p><label>Name</label><br /><input type="text" value="<?php echo esc_attr($product->post_title); ?>" name="product_title" required /></p>
+
+        <div style="margin-bottom: 20px;">
+            <label for="product_description">Product Description</label><br />
+            <?php
+            wp_editor($product->post_content, 'product_description', [
+                'textarea_name' => 'product_description',
+                'media_buttons' => false,
+                'textarea_rows' => 10,
+                'teeny'         => true,
+            ]);
+            ?>
+        </div>
+
         <p><label>Price (RM)</label><br /><input type="number" step="0.01" value="<?php echo esc_attr($price); ?>" name="product_price" required /></p>
         <p><label>SKU</label><br /><input type="text" value="<?php echo esc_attr($sku); ?>" name="product_sku" required /></p>
+
+        <p><label for="product_stock">Stock Quantity</label><br /><input type="number" step="1" id="product_stock" value="<?php echo esc_attr($stock); ?>" name="product_stock" required /></p>
+
         <p><label>Category</label><br /><?php wp_dropdown_categories(['taxonomy' => 'product_category', 'name' => 'product_category', 'show_option_none' => 'Select a Category', 'hierarchical' => 1, 'required' => true, 'hide_empty' => 0, 'selected' => $selected_category]); ?></p>
         <p><label>Brands</label><br /><input type="text" value="<?php echo esc_attr(implode(', ', $brand_names)); ?>" name="product_brands" /><small>Enter brands separated by commas.</small></p>
         <p><strong>Current Image:</strong><br/><?php echo get_the_post_thumbnail($product_id, 'thumbnail'); ?></p>
@@ -215,6 +274,8 @@ function taptosell_product_edit_form_shortcode() {
     return ob_get_clean();
 }
 add_shortcode('supplier_edit_product_form', 'taptosell_product_edit_form_shortcode');
+
+
 /**
  * Shortcode to display a list of orders for the current supplier's products.
  * (This version adds the "Actions" column with an "Update Order" link).
