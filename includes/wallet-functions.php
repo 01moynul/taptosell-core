@@ -74,6 +74,7 @@ function taptosell_wallet_shortcode() {
             $available_balance = taptosell_get_user_wallet_balance($user_id);
             
             $pending_balance = 0;
+            // --- This logic for pending balance remains unchanged ---
             $my_product_ids = get_posts(['post_type' => 'product', 'author' => $user_id, 'posts_per_page' => -1, 'fields' => 'ids']);
             if (!empty($my_product_ids)) {
                 $shipped_orders_query = new WP_Query([
@@ -112,15 +113,49 @@ function taptosell_wallet_shortcode() {
                 </form>
             </div>
             <?php
-        } // <-- This closing brace was missing.
+        }
         ?>
 
         <div class="wallet-history">
             <h4>Transaction History</h4>
+
+            <form method="get" action="" style="margin-bottom: 20px;">
+                <?php
+                if (is_page()) {
+                    echo '<input type="hidden" name="page_id" value="' . get_the_ID() . '">';
+                }
+                ?>
+                <label for="start_date">From:</label>
+                <input type="date" id="start_date" name="start_date" value="<?php echo isset($_GET['start_date']) ? esc_attr($_GET['start_date']) : ''; ?>">
+                <label for="end_date" style="margin-left: 10px;">To:</label>
+                <input type="date" id="end_date" name="end_date" value="<?php echo isset($_GET['end_date']) ? esc_attr($_GET['end_date']) : ''; ?>">
+                <button type="submit" style="margin-left: 10px;">Filter</button>
+                
+                <?php if ( ! empty( $_GET['start_date'] ) && ! empty( $_GET['end_date'] ) ) : ?>
+                    <a href="<?php echo esc_url( get_permalink( get_the_ID() ) ); ?>" style="margin-left: 5px; text-decoration: none;">Clear</a>
+                <?php endif; ?>
+
+            </form>
+
             <?php
             global $wpdb;
             $table_name = $wpdb->prefix . 'taptosell_wallet_transactions';
-            $transactions = $wpdb->get_results($wpdb->prepare("SELECT * FROM $table_name WHERE user_id = %d ORDER BY transaction_date DESC", $user_id));
+            
+            $sql = "SELECT * FROM $table_name WHERE user_id = %d";
+            $params = [$user_id];
+
+            if (!empty($_GET['start_date']) && !empty($_GET['end_date'])) {
+                $start_date = sanitize_text_field($_GET['start_date']) . ' 00:00:00';
+                $end_date = sanitize_text_field($_GET['end_date']) . ' 23:59:59';
+                
+                $sql .= " AND transaction_date BETWEEN %s AND %s";
+                $params[] = $start_date;
+                $params[] = $end_date;
+            }
+
+            $sql .= " ORDER BY transaction_date DESC";
+            
+            $transactions = $wpdb->get_results($wpdb->prepare($sql, ...$params));
 
             if ($transactions) {
                 echo '<table style="width: 100%; border-collapse: collapse;"><thead><tr><th>Date</th><th>Type</th><th>Details</th><th>Amount (RM)</th></tr></thead><tbody>';
@@ -135,7 +170,7 @@ function taptosell_wallet_shortcode() {
                 }
                 echo '</tbody></table>';
             } else {
-                echo '<p>No transactions found.</p>';
+                echo '<p>No transactions found for the selected period.</p>';
             }
             ?>
         </div>
