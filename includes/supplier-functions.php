@@ -94,7 +94,7 @@ function taptosell_handle_product_upload() {
 }
 add_action('init', 'taptosell_handle_product_upload', 20);
 
-// --- UPDATED (Advanced): Handler for the UPDATE product form ---
+// --- UPDATED (Post-Approval Edit FINAL FIX): Handler for the UPDATE product form ---
 function taptosell_handle_product_update() {
     if ( isset( $_POST['taptosell_update_product_submit'] ) && current_user_can('edit_posts') ) {
         if ( ! isset( $_POST['taptosell_product_edit_nonce'] ) || ! wp_verify_nonce( $_POST['taptosell_product_edit_nonce'], 'taptosell_edit_product' ) ) { wp_die('Security check failed!'); }
@@ -104,40 +104,46 @@ function taptosell_handle_product_update() {
 
         if ( get_current_user_id() != $product_author_id && !current_user_can('manage_options') ) { wp_die('You do not have permission to edit this product.'); }
 
-        $product_title = sanitize_text_field($_POST['product_title']);
-        $product_price = sanitize_text_field($_POST['product_price']);
-        $product_sku = sanitize_text_field($_POST['product_sku']);
-        $product_stock = isset($_POST['product_stock']) ? (int)$_POST['product_stock'] : 0;
-        $product_category = isset($_POST['product_category']) ? (int)$_POST['product_category'] : 0;
-        $product_brands = sanitize_text_field($_POST['product_brands']);
-        $product_description = isset($_POST['product_description']) ? wp_kses_post($_POST['product_description']) : '';
+        // --- NEW: Get the product's current status BEFORE making changes ---
+        $product_status = get_post_status($product_id);
+        $is_approved = ($product_status === 'publish');
 
-        // --- NEW (Advanced): Capture advanced product fields ---
-        $product_weight = isset($_POST['product_weight']) ? (float)$_POST['product_weight'] : 0;
-        $product_length = isset($_POST['product_length']) ? (float)$_POST['product_length'] : 0;
-        $product_width = isset($_POST['product_width']) ? (float)$_POST['product_width'] : 0;
-        $product_height = isset($_POST['product_height']) ? (float)$_POST['product_height'] : 0;
-        $product_video = isset($_POST['product_video']) ? esc_url_raw($_POST['product_video']) : '';
+        // --- ALWAYS update the stock quantity, as it's always editable ---
+        $stock_quantity = isset($_POST['product_stock']) ? (int)$_POST['product_stock'] : 0;
+        update_post_meta($product_id, '_stock_quantity', $stock_quantity);
 
-        wp_update_post([
-            'ID' => $product_id,
-            'post_title' => $product_title,
-            'post_content' => $product_description,
-        ]);
-        update_post_meta($product_id, '_price', $product_price);
-        update_post_meta($product_id, '_sku', $product_sku);
-        update_post_meta($product_id, '_stock_quantity', $product_stock);
+        // --- ONLY update the other fields if the product is NOT approved ---
+        if (!$is_approved) {
+            $product_title = sanitize_text_field($_POST['product_title']);
+            $product_price = sanitize_text_field($_POST['product_price']);
+            $product_sku = sanitize_text_field($_POST['product_sku']);
+            $product_category = isset($_POST['product_category']) ? (int)$_POST['product_category'] : 0;
+            $product_brands = sanitize_text_field($_POST['product_brands']);
+            $product_description = isset($_POST['product_description']) ? wp_kses_post($_POST['product_description']) : '';
+            $product_weight = isset($_POST['product_weight']) ? (float)$_POST['product_weight'] : 0;
+            $product_length = isset($_POST['product_length']) ? (float)$_POST['product_length'] : 0;
+            $product_width = isset($_POST['product_width']) ? (float)$_POST['product_width'] : 0;
+            $product_height = isset($_POST['product_height']) ? (float)$_POST['product_height'] : 0;
+            $product_video = isset($_POST['product_video']) ? esc_url_raw($_POST['product_video']) : '';
 
-        // --- NEW (Advanced): Save new fields as post meta ---
-        update_post_meta($product_id, '_weight', $product_weight);
-        update_post_meta($product_id, '_length', $product_length);
-        update_post_meta($product_id, '_width', $product_width);
-        update_post_meta($product_id, '_height', $product_height);
-        update_post_meta($product_id, '_video_url', $product_video);
+            wp_update_post([
+                'ID' => $product_id,
+                'post_title' => $product_title,
+                'post_content' => $product_description,
+            ]);
+            update_post_meta($product_id, '_price', $product_price);
+            update_post_meta($product_id, '_sku', $product_sku);
+            update_post_meta($product_id, '_weight', $product_weight);
+            update_post_meta($product_id, '_length', $product_length);
+            update_post_meta($product_id, '_width', $product_width);
+            update_post_meta($product_id, '_height', $product_height);
+            update_post_meta($product_id, '_video_url', $product_video);
 
-        if ($product_category > 0) { wp_set_post_terms($product_id, [$product_category], 'product_category'); }
-        if (!empty($product_brands)) { wp_set_post_terms($product_id, $product_brands, 'brand', false); } else { wp_set_post_terms($product_id, '', 'brand'); }
+            if ($product_category > 0) { wp_set_post_terms($product_id, [$product_category], 'product_category'); }
+            if (!empty($product_brands)) { wp_set_post_terms($product_id, $product_brands, 'brand', false); } else { wp_set_post_terms($product_id, '', 'brand'); }
+        }
 
+        // Redirect back to the supplier dashboard
         $dashboard_page = get_page_by_title('Supplier Dashboard');
         if ($dashboard_page) {
             $redirect_url = add_query_arg('product_updated', 'true', get_permalink($dashboard_page->ID));
@@ -203,7 +209,7 @@ function taptosell_product_upload_form_shortcode() {
 add_shortcode('supplier_product_upload_form', 'taptosell_product_upload_form_shortcode');
 
 
-// --- UPDATED (Rejection Workflow): Shortcode for the supplier's "My Products" list ---
+// --- UPDATED (Post-Approval Edit): Shortcode for the supplier's "My Products" list ---
 function taptosell_supplier_my_products_shortcode() {
     if ( ! is_user_logged_in() ) return '';
     $user = wp_get_current_user();
@@ -241,7 +247,6 @@ function taptosell_supplier_my_products_shortcode() {
                 echo '<span style="background-color: #d4edda; color: #155724; padding: 3px 8px; border-radius: 4px;">Approved</span>';
             } elseif ($status === 'rejected') {
                 echo '<span style="background-color: #f8d7da; color: #721c24; padding: 3px 8px; border-radius: 4px;">Rejected</span>';
-                // --- NEW: Display the rejection reason ---
                 $reason = get_post_meta($product_id, '_rejection_reason', true);
                 if (!empty($reason)) {
                     echo '<br><small style="color: #721c24;"><em>Reason: ' . esc_html($reason) . '</em></small>';
@@ -253,7 +258,8 @@ function taptosell_supplier_my_products_shortcode() {
             echo '</td>';
             echo '<td>';
             
-            if ($status === 'draft' || $status === 'pending' || $status === 'rejected') {
+            // --- UPDATED: Allow editing for PUBLISHED products as well ---
+            if ($status === 'draft' || $status === 'pending' || $status === 'rejected' || $status === 'publish') {
                 $edit_page = get_page_by_title('Edit Product');
                 if ($edit_page) {
                     $edit_link = add_query_arg('product_id', get_the_ID(), get_permalink($edit_page->ID));
@@ -272,7 +278,7 @@ function taptosell_supplier_my_products_shortcode() {
 add_shortcode('supplier_my_products', 'taptosell_supplier_my_products_shortcode');
 
 
-// --- UPDATED (Advanced): Shortcode for the EDIT product form ---
+// --- UPDATED (Post-Approval Edit Fix): Shortcode for the EDIT product form ---
 function taptosell_product_edit_form_shortcode() {
     if ( !is_user_logged_in() || !current_user_can('edit_posts') ) { return '<p>You do not have permission to view this content.</p>'; }
     if (!isset($_GET['product_id'])) { return '<p>No product selected. Go back to your <a href="/supplier-dashboard">dashboard</a> to select a product to edit.</p>'; }
@@ -283,6 +289,9 @@ function taptosell_product_edit_form_shortcode() {
     if (!$product || ($product->post_author != get_current_user_id() && !current_user_can('manage_options'))) {
         return '<p>You do not have permission to edit this product.</p>';
     }
+
+    $is_approved = ($product->post_status === 'publish');
+    $readonly_attr = $is_approved ? 'readonly' : '';
     
     $price = get_post_meta($product_id, '_price', true);
     $sku = get_post_meta($product_id, '_sku', true);
@@ -293,7 +302,6 @@ function taptosell_product_edit_form_shortcode() {
     $brand_names = [];
     if (!empty($brand_terms)) { foreach ($brand_terms as $term) { $brand_names[] = $term->name; } }
 
-    // --- NEW (Advanced): Get existing values for advanced fields ---
     $weight = get_post_meta($product_id, '_weight', true);
     $length = get_post_meta($product_id, '_length', true);
     $width = get_post_meta($product_id, '_width', true);
@@ -305,7 +313,7 @@ function taptosell_product_edit_form_shortcode() {
     <h3>Edit Product: <?php echo esc_html($product->post_title); ?></h3>
     <form id="edit-product-form" method="post" action="">
         <input type="hidden" name="product_id" value="<?php echo esc_attr($product_id); ?>">
-        <p><label>Name</label><br /><input type="text" value="<?php echo esc_attr($product->post_title); ?>" name="product_title" required /></p>
+        <p><label>Name</label><br /><input type="text" value="<?php echo esc_attr($product->post_title); ?>" name="product_title" required <?php echo $readonly_attr; ?> /></p>
 
         <div style="margin-bottom: 20px;">
             <label for="product_description">Product Description</label><br />
@@ -315,34 +323,54 @@ function taptosell_product_edit_form_shortcode() {
                 'media_buttons' => false,
                 'textarea_rows' => 10,
                 'teeny'         => true,
+                'editor_css'    => $is_approved ? '<style>.wp-editor-container{background-color:#f0f0f0;}</style>' : '',
+                'tinymce'       => !$is_approved,
+                'quicktags'     => !$is_approved,
             ]);
             ?>
         </div>
 
-        <p><label>Price (RM)</label><br /><input type="number" step="0.01" value="<?php echo esc_attr($price); ?>" name="product_price" required /></p>
-        <p><label>SKU</label><br /><input type="text" value="<?php echo esc_attr($sku); ?>" name="product_sku" required /></p>
+        <p><label>Your Price (RM)</label><br />
+            <input type="number" step="0.01" value="<?php echo esc_attr($price); ?>" name="product_price" required <?php echo $readonly_attr; ?> />
+            <?php if ($is_approved): ?>
+                <br><small><em>To change the price, please submit a request below.</em></small>
+            <?php endif; ?>
+        </p>
+
+        <p><label>SKU</label><br /><input type="text" value="<?php echo esc_attr($sku); ?>" name="product_sku" required <?php echo $readonly_attr; ?> /></p>
         <p><label for="product_stock">Stock Quantity</label><br /><input type="number" step="1" id="product_stock" value="<?php echo esc_attr($stock); ?>" name="product_stock" required /></p>
 
         <div style="border: 1px solid #ddd; padding: 15px; margin: 20px 0;">
             <h4>Shipping & Media</h4>
-            <p>
-                <label for="product_weight">Weight (kg)</label><br />
-                <input type="number" step="0.01" id="product_weight" name="product_weight" placeholder="e.g., 0.5" value="<?php echo esc_attr($weight); ?>">
+            <p><label>Weight (kg)</label><br /><input type="number" step="0.01" name="product_weight" value="<?php echo esc_attr($weight); ?>" <?php echo $readonly_attr; ?>></p>
+            <p><label>Package Dimensions (cm)</label><br />
+                <input type="number" step="0.01" name="product_length" value="<?php echo esc_attr($length); ?>" placeholder="Length" style="width: 100px;" <?php echo $readonly_attr; ?>>
+                <input type="number" step="0.01" name="product_width" value="<?php echo esc_attr($width); ?>" placeholder="Width" style="width: 100px;" <?php echo $readonly_attr; ?>>
+                <input type="number" step="0.01" name="product_height" value="<?php echo esc_attr($height); ?>" placeholder="Height" style="width: 100px;" <?php echo $readonly_attr; ?>>
             </p>
-            <p>
-                <label>Package Dimensions (cm)</label><br />
-                <input type="number" step="0.01" name="product_length" placeholder="Length" style="width: 100px;" value="<?php echo esc_attr($length); ?>">
-                <input type="number" step="0.01" name="product_width" placeholder="Width" style="width: 100px;" value="<?php echo esc_attr($width); ?>">
-                <input type="number" step="0.01" name="product_height" placeholder="Height" style="width: 100px;" value="<?php echo esc_attr($height); ?>">
-            </p>
-            <p>
-                <label for="product_video">Product Video URL (Optional)</label><br />
-                <input type="url" id="product_video" name="product_video" placeholder="e.g., https://youtube.com/watch?v=..." style="width: 100%; max-width: 400px;" value="<?php echo esc_attr($video_url); ?>">
-            </p>
+            <p><label>Product Video URL</label><br /><input type="url" name="product_video" value="<?php echo esc_attr($video_url); ?>" style="width: 100%; max-width: 400px;" <?php echo $readonly_attr; ?>></p>
         </div>
 
-        <p><label>Category</label><br /><?php wp_dropdown_categories(['taxonomy' => 'product_category', 'name' => 'product_category', 'show_option_none' => 'Select a Category', 'hierarchical' => 1, 'required' => true, 'hide_empty' => 0, 'selected' => $selected_category]); ?></p>
-        <p><label>Brands</label><br /><input type="text" value="<?php echo esc_attr(implode(', ', $brand_names)); ?>" name="product_brands" /><small>Enter brands separated by commas.</small></p>
+        <p><label>Category</label><br />
+        <?php 
+        // --- FIX: Build the arguments array for the dropdown ---
+        $cat_args = [
+            'taxonomy'         => 'product_category',
+            'name'             => 'product_category',
+            'show_option_none' => 'Select a Category',
+            'hierarchical'     => 1,
+            'required'         => true,
+            'hide_empty'       => 0,
+            'selected'         => $selected_category,
+        ];
+        // If the product is approved, add the 'disabled' attribute to the arguments array.
+        if ($is_approved) {
+            $cat_args['disabled'] = 'disabled';
+        }
+        wp_dropdown_categories($cat_args); 
+        ?>
+        </p>
+        <p><label>Brands</label><br /><input type="text" value="<?php echo esc_attr(implode(', ', $brand_names)); ?>" name="product_brands" <?php echo $readonly_attr; ?> /><small>Enter brands separated by commas.</small></p>
         <p><strong>Current Image:</strong><br/><?php echo get_the_post_thumbnail($product_id, 'thumbnail'); ?></p>
         <?php wp_nonce_field('taptosell_edit_product', 'taptosell_product_edit_nonce'); ?>
         <p><input type="submit" value="Update Product" name="taptosell_update_product_submit" /></p>
