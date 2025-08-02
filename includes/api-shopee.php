@@ -115,6 +115,27 @@ function taptosell_get_dummy_shopee_products() {
             'item_sku'  => 'SHOPEE-UNIQUE-SKU-99',
             'item_name' => 'A completely random product',
         ],
+        // --- NEW DUMMY PRODUCTS FOR TESTING ---
+        [
+            'item_id'   => 2001,
+            'item_sku'  => 'u-y-rej', // SKU from your screenshot for "rejetd test"
+            'item_name' => 'Supplier Rejetd Test Product',
+        ],
+        [
+            'item_id'   => 2002,
+            'item_sku'  => 'yu-i-f', // SKU from your screenshot for "jelly"
+            'item_name' => 'Supplier Jelly Product',
+        ],
+        [
+            'item_id'   => 2003,
+            'item_sku'  => 'NEW-SKU-003',
+            'item_name' => 'Another New Product for Bulk Test',
+        ],
+        [
+            'item_id'   => 2004,
+            'item_sku'  => 'BULK-TEST-004',
+            'item_name' => 'Fourth Product for Bulk Sync',
+        ],
     ];
 }
 
@@ -191,7 +212,7 @@ function taptosell_match_shopee_products($marketplace_products) {
 
 /**
  * Shortcode to display the product matching review UI.
- * (This version hides already-linked products and shows subscription errors).
+ * (This version adds checkboxes for bulk actions).
  */
 function taptosell_product_matching_ui_shortcode() {
     if ( !is_user_logged_in() || !current_user_can('dropshipper') ) { return '<p>This feature is for Dropshippers only.</p>'; }
@@ -202,14 +223,14 @@ function taptosell_product_matching_ui_shortcode() {
     if (isset($_GET['match_approved']) && $_GET['match_approved'] === 'true') {
         echo '<div style="background-color: #d4edda; color: #155724; padding: 15px; margin-bottom: 20px;">Match approved and product linked!</div>';
     }
-    // NEW: Display subscription limit error
+    if (isset($_GET['bulk_approved_count'])) {
+        $count = (int)$_GET['bulk_approved_count'];
+        echo '<div style="background-color: #d4edda; color: #155724; padding: 15px; margin-bottom: 20px;">' . sprintf( _n( '%d match approved successfully.', '%d matches approved successfully.', $count ), $count ) . '</div>';
+    }
     if (isset($_GET['match_error']) && $_GET['match_error'] === 'limit_reached') {
         echo '<div style="background-color: #f8d7da; color: #721c24; padding: 15px; margin-bottom: 20px;"><strong>Limit Reached:</strong> You have reached your free product linking limit. Please subscribe to link more products.</div>';
     }
-    // --- End Status Messages ---
-
-
-    // --- Get and filter products (same as before) ---
+    
     global $wpdb;
     $dropshipper_id = get_current_user_id();
     $table_name = $wpdb->prefix . 'taptosell_dropshipper_products';
@@ -226,12 +247,29 @@ function taptosell_product_matching_ui_shortcode() {
         return ob_get_clean();
     }
     
-    // --- Display Matched Products Table (same as before) ---
     if (!empty($matching_results['matched'])) {
         echo '<h3>Suggested Matches</h3>';
-        echo '<table style="width: 100%; border-collapse: collapse;"><thead><tr><th>Your Product (Shopee)</th><th>Suggested Match (TapToSell)</th><th>Match Type</th><th>Action</th></tr></thead><tbody>';
+        
+        // --- NEW: Wrap table in a form for bulk actions ---
+        echo '<form method="post" action="">';
+        wp_nonce_field('taptosell_bulk_approve_action', 'taptosell_bulk_approve_nonce');
+
+        echo '<table style="width: 100%; border-collapse: collapse;"><thead><tr>
+              <th style="width: 5%;"><input type="checkbox" title="Select All"></th>
+              <th>Your Product (Shopee)</th>
+              <th>Suggested Match (TapToSell)</th>
+              <th>Match Type</th>
+              <th>Action</th>
+              </tr></thead><tbody>';
+
         foreach ($matching_results['matched'] as $match) {
+            // --- NEW: Create a composite value for the checkbox ---
+            $checkbox_value = esc_attr($match['shopee_product']['item_id'] . ':' . $match['taptosell_product']['id']);
+
             echo '<tr>';
+            // --- NEW: Add a checkbox to each row ---
+            echo '<td style="text-align: center;"><input type="checkbox" name="matches[]" value="' . $checkbox_value . '"></td>';
+
             echo '<td>' . esc_html($match['shopee_product']['item_name']) . '<br><small>SKU: ' . esc_html($match['shopee_product']['item_sku']) . '</small></td>';
             echo '<td>' . esc_html($match['taptosell_product']['title']) . '<br><small>SKU: ' . esc_html($match['taptosell_product']['sku']) . '</small></td>';
             echo '<td>' . esc_html($match['match_type']) . '</td>';
@@ -243,9 +281,15 @@ function taptosell_product_matching_ui_shortcode() {
             echo '</tr>';
         }
         echo '</tbody></table>';
+
+        // --- NEW: Add the bulk submit button ---
+        echo '<div style="margin-top: 20px;">';
+        echo '<button type="submit" name="taptosell_action" value="bulk_approve_matches" class="button button-primary">Approve Selected</button>';
+        echo '</div>';
+
+        echo '</form>';
     }
     
-    // --- Display Unmatched Products Table (same as before) ---
     if (!empty($matching_results['unmatched'])) {
         echo '<h3 style="margin-top: 30px;">Unmatched Products</h3>';
         echo '<table style="width: 100%; border-collapse: collapse;"><thead><tr><th>Your Product (Shopee)</th><th>Action</th></tr></thead><tbody>';
@@ -303,3 +347,72 @@ function taptosell_handle_approve_match() {
     exit;
 }
 add_action('init', 'taptosell_handle_approve_match');
+
+/**
+ * --- NEW: Handles the "Approve Selected" bulk action from the matching UI. ---
+ */
+function taptosell_handle_bulk_approve_matches() {
+    // Check if our specific form action was triggered
+    if ( !isset($_POST['taptosell_action']) || $_POST['taptosell_action'] !== 'bulk_approve_matches' ) {
+        return;
+    }
+    // Security check for nonce
+    if ( !isset($_POST['taptosell_bulk_approve_nonce']) || !wp_verify_nonce($_POST['taptosell_bulk_approve_nonce'], 'taptosell_bulk_approve_action') ) {
+        wp_die('Security check failed!');
+    }
+    // Security check for user role
+    if ( !current_user_can('dropshipper') ) {
+        return;
+    }
+    // Check if any checkboxes were ticked. If not, do nothing.
+    if ( empty($_POST['matches']) || !is_array($_POST['matches']) ) {
+        wp_redirect(wp_get_referer());
+        exit;
+    }
+
+    $dropshipper_id = get_current_user_id();
+    $approved_count = 0;
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'taptosell_dropshipper_products';
+
+    // Loop through each selected checkbox
+    foreach ($_POST['matches'] as $match_value) {
+        
+        // On each iteration, check if the user is still allowed to link products
+        if ( ! taptosell_can_user_link_product($dropshipper_id) ) {
+            $redirect_url = add_query_arg('match_error', 'limit_reached', wp_get_referer());
+            // If the limit is reached partway through, still show a success message for the ones that were approved
+            if ($approved_count > 0) {
+                $redirect_url = add_query_arg('bulk_approved_count', $approved_count, $redirect_url);
+            }
+            wp_redirect($redirect_url);
+            exit;
+        }
+
+        // The checkbox value is 'shopee_id:taptosell_id'. We need to split it into two variables.
+        list($shopee_product_id, $taptosell_product_id) = explode(':', $match_value);
+        $shopee_product_id = (int)$shopee_product_id;
+        $taptosell_product_id = (int)$taptosell_product_id;
+
+        // Make sure the IDs are valid before processing
+        if ($taptosell_product_id > 0 && $shopee_product_id > 0) {
+            // Use the same robust database logic as the single approve action
+            $wpdb->query($wpdb->prepare(
+                "INSERT INTO $table_name (dropshipper_id, taptosell_product_id, marketplace_product_id, marketplace, date_added)
+                 VALUES (%d, %d, %d, %s, %s)
+                 ON DUPLICATE KEY UPDATE marketplace_product_id = %d, marketplace = %s",
+                $dropshipper_id, $taptosell_product_id, $shopee_product_id, 'shopee', current_time('mysql'),
+                $shopee_product_id, 'shopee'
+            ));
+            $approved_count++;
+        }
+    }
+
+    // Redirect back to the review page with a success message showing how many were approved
+    if ($approved_count > 0) {
+        $redirect_url = add_query_arg('bulk_approved_count', $approved_count, wp_get_referer());
+        wp_redirect($redirect_url);
+        exit;
+    }
+}
+add_action('init', 'taptosell_handle_bulk_approve_matches');
