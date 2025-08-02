@@ -105,3 +105,51 @@ function taptosell_can_user_link_product($user_id) {
     // If they are not subscribed and have reached their limit, block them.
     return false;
 }
+
+/**
+ * --- NEW: Shortcode to display a dropshipper's subscription status. ---
+ * Usage: [dropshipper_my_subscription]
+ */
+function taptosell_my_subscription_shortcode() {
+    // Ensure the user is a logged-in dropshipper
+    if ( !is_user_logged_in() || !current_user_can('dropshipper') ) {
+        return '<p>This information is only available to dropshippers.</p>';
+    }
+
+    $user_id = get_current_user_id();
+    $status = get_user_meta($user_id, '_subscription_status', true);
+    $expiry_date = get_user_meta($user_id, '_subscription_expiry_date', true);
+
+    // Set default display values
+    $display_status = 'Inactive';
+    $status_color = '#721c24'; // Red for inactive
+    $display_expiry = 'N/A';
+
+    if ($status === 'active' && !empty($expiry_date) && strtotime($expiry_date) > time()) {
+        $display_status = 'Active';
+        $status_color = '#155724'; // Green for active
+        $display_expiry = date('F j, Y', strtotime($expiry_date));
+    }
+
+    ob_start();
+    ?>
+    <div class="subscription-status-container" style="border: 1px solid #ddd; padding: 20px; max-width: 500px;">
+        <h3 style="margin-top: 0;">My Subscription</h3>
+        <p>
+            <strong>Status:</strong> 
+            <span style="background-color: <?php echo $status_color; ?>; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold;">
+                <?php echo esc_html($display_status); ?>
+            </span>
+        </p>
+        <p>
+            <strong>Expires On:</strong> 
+            <?php echo esc_html($display_expiry); ?>
+        </p>
+        <p>
+            <a href="#">Upgrade or Renew Subscription</a>
+        </p>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('dropshipper_my_subscription', 'taptosell_my_subscription_shortcode');
