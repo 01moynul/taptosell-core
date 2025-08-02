@@ -5,7 +5,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 /**
  * Handles the registration form submission.
- * Marks new users as 'pending'.
+ * Marks new users as 'pending' and creates an admin notification.
  */
 function taptosell_handle_registration() {
     if ( isset( $_POST['taptosell_register_submit'] ) ) {
@@ -30,10 +30,18 @@ function taptosell_handle_registration() {
         ]);
 
         if ( ! is_wp_error( $user_id ) ) {
-            // NEW: Add a meta field to mark the account as pending approval.
             update_user_meta($user_id, '_account_status', 'pending');
             
-            // NEW: Redirect to the login page with a 'pending' message.
+            // --- NEW: Generate a notification for all Operational Admins ---
+            $op_admins = get_users(['role' => 'operational_admin', 'fields' => 'ID']);
+            if (!empty($op_admins)) {
+                $message = 'New user "' . esc_html($username) . '" has registered and is pending approval.';
+                $link = admin_url('users.php');
+                foreach ($op_admins as $admin_id) {
+                    taptosell_add_notification($admin_id, $message, $link);
+                }
+            }
+            
             $login_url = wp_login_url() . '?registration=pending';
             wp_redirect( $login_url );
             exit;

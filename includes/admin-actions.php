@@ -58,35 +58,47 @@ function taptosell_handle_product_approval_actions() {
     // --- Handle Approve Action ---
     if (isset($_GET['action']) && $_GET['action'] === 'taptosell_approve_product') {
         $post_id = (int)$_GET['product_id'];
-        
-        // Verify the nonce for security.
         check_admin_referer('taptosell_product_action_' . $post_id);
 
-        // Update the post status to 'publish'.
         wp_update_post([
             'ID' => $post_id,
             'post_status' => 'publish'
         ]);
         
-        // Redirect back to the products list.
+        // --- NEW: Notify the supplier that their product was approved ---
+        $supplier_id = get_post_field('post_author', $post_id);
+        $product_title = get_the_title($post_id);
+        $dashboard_page = get_page_by_title('Supplier Dashboard');
+        $dashboard_link = $dashboard_page ? get_permalink($dashboard_page->ID) : '';
+        $message = 'Congratulations! Your product "' . esc_html($product_title) . '" has been approved.';
+        taptosell_add_notification($supplier_id, $message, $dashboard_link);
+
         wp_redirect(admin_url('edit.php?post_type=product'));
         exit();
     }
 
-    // --- UPDATED: Handle Reject Action ---
+    // --- Handle Reject Action ---
     if (isset($_GET['action']) && $_GET['action'] === 'taptosell_reject_product') {
         $post_id = (int)$_GET['product_id'];
-
-        // Verify the nonce for security.
         check_admin_referer('taptosell_product_action_' . $post_id);
 
-        // Instead of trashing, update the post status to 'rejected'.
         wp_update_post([
             'ID' => $post_id,
             'post_status' => 'rejected'
         ]);
         
-        // Redirect back to the products list.
+        // --- NEW: Notify the supplier that their product was rejected ---
+        $supplier_id = get_post_field('post_author', $post_id);
+        $product_title = get_the_title($post_id);
+        $dashboard_page = get_page_by_title('Supplier Dashboard');
+        $dashboard_link = $dashboard_page ? get_permalink($dashboard_page->ID) : '';
+        $rejection_reason = get_post_meta($post_id, '_rejection_reason', true);
+        $message = 'Your product "' . esc_html($product_title) . '" has been rejected.';
+        if (!empty($rejection_reason)) {
+            $message .= ' Reason: ' . esc_html($rejection_reason);
+        }
+        taptosell_add_notification($supplier_id, $message, $dashboard_link);
+        
         wp_redirect(admin_url('edit.php?post_type=product'));
         exit();
     }

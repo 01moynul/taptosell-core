@@ -34,4 +34,5 @@ require_once TAPTOSELL_CORE_PATH . 'includes/admin-price-requests.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/helpers.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/api-shopee.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/subscription-functions.php';
+require_once TAPTOSELL_CORE_PATH . 'includes/notifications-functions.php';
 ?>

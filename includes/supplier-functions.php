@@ -31,7 +31,7 @@ function taptosell_supplier_dashboard_access() {
 }
 add_action( 'template_redirect', 'taptosell_supplier_dashboard_access' );
 
-// --- UPDATED (Advanced): Handler for the NEW product form ---
+// --- UPDATED (Notifications): Handler for the NEW product form ---
 function taptosell_handle_product_upload() {
     if ( isset( $_POST['taptosell_new_product_submit'] ) && current_user_can('edit_posts') ) {
         if ( ! isset( $_POST['taptosell_product_nonce'] ) || ! wp_verify_nonce( $_POST['taptosell_product_nonce'], 'taptosell_add_product' ) ) { wp_die('Security check failed!'); }
@@ -44,7 +44,6 @@ function taptosell_handle_product_upload() {
         $product_brands = sanitize_text_field($_POST['product_brands']);
         $product_description = isset($_POST['product_description']) ? wp_kses_post($_POST['product_description']) : '';
 
-        // --- NEW (Advanced): Capture advanced product fields ---
         $product_weight = isset($_POST['product_weight']) ? (float)$_POST['product_weight'] : 0;
         $product_length = isset($_POST['product_length']) ? (float)$_POST['product_length'] : 0;
         $product_width = isset($_POST['product_width']) ? (float)$_POST['product_width'] : 0;
@@ -67,7 +66,6 @@ function taptosell_handle_product_upload() {
             update_post_meta($product_id, '_sku', $product_sku);
             update_post_meta($product_id, '_stock_quantity', $product_stock);
 
-            // --- NEW (Advanced): Save new fields as post meta ---
             update_post_meta($product_id, '_weight', $product_weight);
             update_post_meta($product_id, '_length', $product_length);
             update_post_meta($product_id, '_width', $product_width);
@@ -84,6 +82,17 @@ function taptosell_handle_product_upload() {
                 $attachment_id = media_handle_upload('product_image', $product_id);
                 if ( ! is_wp_error($attachment_id) ) { set_post_thumbnail($product_id, $attachment_id); }
             }
+
+            // --- NEW: Generate a notification for all Operational Admins ---
+            $op_admins = get_users(['role' => 'operational_admin', 'fields' => 'ID']);
+            if (!empty($op_admins)) {
+                $message = 'New product "' . esc_html($product_title) . '" has been submitted for approval.';
+                $link = admin_url('edit.php?post_status=draft&post_type=product');
+                foreach ($op_admins as $admin_id) {
+                    taptosell_add_notification($admin_id, $message, $link);
+                }
+            }
+
             $dashboard_page = get_page_by_title('Supplier Dashboard');
             if ($dashboard_page) {
                 $redirect_url = add_query_arg('product_submitted', 'true', get_permalink($dashboard_page->ID));

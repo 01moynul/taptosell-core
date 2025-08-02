@@ -56,7 +56,7 @@ function taptosell_add_custom_roles() {
     $sql_wallet = "CREATE TABLE $wallet_table_name ( transaction_id bigint(20) NOT NULL AUTO_INCREMENT, user_id bigint(20) UNSIGNED NOT NULL, amount decimal(10,2) NOT NULL, type varchar(50) NOT NULL, details text, transaction_date datetime DEFAULT '0000-00-00 00:00:00' NOT NULL, PRIMARY KEY  (transaction_id), KEY user_id (user_id) ) $charset_collate;";
     dbDelta($sql_wallet);
 
-    // --- NEW: Table for Price Change Requests ---
+    // Table for Price Change Requests
     $price_change_table_name = $wpdb->prefix . 'taptosell_price_changes';
     $sql_price_changes = "CREATE TABLE $price_change_table_name (
         id mediumint(9) NOT NULL AUTO_INCREMENT,
@@ -70,6 +70,20 @@ function taptosell_add_custom_roles() {
         KEY product_id (product_id)
     ) $charset_collate;";
     dbDelta($sql_price_changes);
+
+    // --- NEW: Table for Notifications ---
+    $notifications_table_name = $wpdb->prefix . 'taptosell_notifications';
+    $sql_notifications = "CREATE TABLE $notifications_table_name (
+        id bigint(20) NOT NULL AUTO_INCREMENT,
+        user_id bigint(20) UNSIGNED NOT NULL,
+        message text NOT NULL,
+        link varchar(255) DEFAULT '' NOT NULL,
+        is_read tinyint(1) DEFAULT 0 NOT NULL,
+        created_date datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
+        PRIMARY KEY  (id),
+        KEY user_id (user_id)
+    ) $charset_collate;";
+    dbDelta($sql_notifications);
 }
 register_activation_hook( TAPTOSELL_CORE_PATH . 'taptosell-core.php', 'taptosell_add_custom_roles' );
 
