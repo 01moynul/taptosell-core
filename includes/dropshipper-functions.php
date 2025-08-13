@@ -431,3 +431,98 @@ function taptosell_handle_shopee_connect() {
     }
 }
 add_action('init', 'taptosell_handle_shopee_connect');
+
+/**
+ * --- NEW: Shortcode to display a sales summary chart. ---
+ * Usage: [dropshipper_sales_summary]
+ */
+function taptosell_sales_summary_shortcode() {
+    // Security check for logged-in dropshipper
+    if ( !is_user_logged_in() || !current_user_can('dropshipper') ) {
+        return '';
+    }
+
+    $user_id = get_current_user_id();
+    $sales_data = [];
+    $date_labels = [];
+
+    // Loop through the last 7 days, including today
+    for ($i = 6; $i >= 0; $i--) {
+        $date = date('Y-m-d', strtotime("-$i days"));
+        $date_labels[] = date('M d', strtotime($date)); // Format for display, e.g., "Aug 13"
+
+        // Query to get all completed orders for the current user on this specific day
+        $daily_orders_query = new WP_Query([
+            'post_type'      => 'taptosell_order',
+            'author'         => $user_id,
+            'post_status'    => 'wc-completed',
+            'posts_per_page' => -1,
+            'date_query'     => [
+                ['year' => date('Y', strtotime($date)), 'month' => date('m', strtotime($date)), 'day' => date('d', strtotime($date))],
+            ],
+            'meta_key'       => '_order_cost', // Ensure we only get orders that have a cost associated
+        ]);
+
+        $daily_total = 0;
+        if ($daily_orders_query->have_posts()) {
+            while ($daily_orders_query->have_posts()) {
+                $daily_orders_query->the_post();
+                // For a sales chart, we should sum the SRP, not the cost.
+                // We'll need to look up the SRP the dropshipper set for this product.
+                $product_id = get_post_meta(get_the_ID(), '_product_id', true);
+
+                global $wpdb;
+                $srp_table_name = $wpdb->prefix . 'taptosell_dropshipper_products';
+                $srp = $wpdb->get_var($wpdb->prepare(
+                    "SELECT srp FROM $srp_table_name WHERE dropshipper_id = %d AND taptosell_product_id = %d",
+                    $user_id, $product_id
+                ));
+                
+                if (is_numeric($srp)) {
+                    $daily_total += (float)$srp;
+                }
+            }
+        }
+        wp_reset_postdata();
+
+        $sales_data[] = $daily_total;
+    }
+
+    ob_start();
+    ?>
+    <div class="sales-summary-container" style="max-width: 800px; margin-top: 20px;">
+        <h3>Last 7 Days Sales Summary</h3>
+        <canvas id="salesSummaryChart"></canvas>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const ctx = document.getElementById('salesSummaryChart').getContext('2d');
+            const salesChart = new Chart(ctx, {
+                type: 'line', // Type of chart
+                data: {
+                    labels: <?php echo json_encode($date_labels); ?>, // Dates for the X-axis
+                    datasets: [{
+                        label: 'Total Sales (RM)',
+                        data: <?php echo json_encode($sales_data); ?>, // Sales data for the Y-axis
+                        backgroundColor: 'rgba(35, 181, 116, 0.2)',
+                        borderColor: 'rgba(35, 181, 116, 1)',
+                        borderWidth: 2,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('dropshipper_sales_summary', 'taptosell_sales_summary_shortcode');
