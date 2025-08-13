@@ -29,8 +29,7 @@ function taptosell_add_notification( $user_id, $message, $link = '' ) {
 }
 
 /**
- * --- UPDATED: Shortcode to display the user's notification panel. ---
- * Now adds a tracking parameter to notification links.
+ * --- UPDATED (UI/UX Styling): Shortcode to display the user's notification panel. ---
  */
 function taptosell_notifications_panel_shortcode() {
     if ( ! is_user_logged_in() ) {
@@ -42,34 +41,32 @@ function taptosell_notifications_panel_shortcode() {
     $table_name = $wpdb->prefix . 'taptosell_notifications';
 
     $notifications = $wpdb->get_results(
-        $wpdb->prepare("SELECT * FROM $table_name WHERE user_id = %d ORDER BY created_date DESC", $user_id)
+        $wpdb->prepare("SELECT * FROM $table_name WHERE user_id = %d ORDER BY created_date DESC LIMIT 50", $user_id) // Added a reasonable limit
     );
 
     ob_start();
     ?>
-    <div class="taptosell-notifications-panel">
+    <div class="taptosell-container taptosell-notifications-panel">
         <h3 style="margin-top: 0;">Notifications</h3>
         <?php if ( ! empty( $notifications ) ) : ?>
-            <ul style="list-style: none; margin: 0; padding: 0;">
+            <ul>
                 <?php foreach ( $notifications as $notification ) : ?>
                     <?php
-                    $bg_color = ($notification->is_read == 0) ? '#eef7ff' : '#f9f9f9';
+                    // --- UPDATED: Add the 'notification-unread' class for new items ---
+                    $li_class = ($notification->is_read == 0) ? 'notification-unread' : '';
                     ?>
-                    <li style="background-color: <?php echo $bg_color; ?>; border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 4px;">
+                    <li class="<?php echo esc_attr($li_class); ?>">
                         <?php
                         $message = esc_html($notification->message);
-                        
-                        // --- UPDATED: Add notification ID to the link if it exists ---
                         if ( ! empty( $notification->link ) ) {
-                            // Add a query argument to the link to track the click
                             $read_link = add_query_arg('notification_id', $notification->id, $notification->link);
-                            echo '<a href="' . esc_url($read_link) . '" style="text-decoration: none; color: inherit;">' . $message . '</a>';
+                            echo '<a href="' . esc_url($read_link) . '">' . $message . '</a>';
                         } else {
                             echo $message;
                         }
                         ?>
                         <br>
-                        <small style="color: #777;"><?php echo date('F j, Y, g:i a', strtotime($notification->created_date)); ?></small>
+                        <small><?php echo date('F j, Y, g:i a', strtotime($notification->created_date)); ?></small>
                     </li>
                 <?php endforeach; ?>
             </ul>

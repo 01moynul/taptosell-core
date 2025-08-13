@@ -118,14 +118,13 @@ function taptosell_remove_custom_roles() {
 register_deactivation_hook( TAPTOSELL_CORE_PATH . 'taptosell-core.php', 'taptosell_remove_custom_roles' );
 
 /**
- * --- NEW: Enqueue the custom stylesheet for the plugin's front-end pages. ---
+ * --- FINAL CORRECTED VERSION: Enqueue the custom stylesheet for the plugin's front-end pages. ---
  */
 function taptosell_enqueue_frontend_styles() {
-    // We only want to load this stylesheet on pages that contain our shortcodes.
-    // This is a simple check for now. We can make it more robust if needed.
-    global $post;
-    if ( is_a( $post, 'WP_Post' ) && has_shortcode( $post->post_content, 'taptosell_') ) {
-        $plugin_version = '1.2.0'; // We can get this dynamically later if needed.
+    // This simplified function loads the stylesheet on all front-end pages,
+    // which is more reliable than checking for specific shortcodes and avoids loading-order issues.
+    if ( ! is_admin() ) {
+        $plugin_version = '1.2.2'; // Incremented version to ensure cache is busted.
         wp_enqueue_style(
             'taptosell-frontend-styles', // A unique name for our stylesheet
             plugin_dir_url( dirname( __FILE__ ) ) . 'assets/css/taptosell-styles.css', // The full URL to the file
@@ -134,4 +133,3 @@ function taptosell_enqueue_frontend_styles() {
         );
     }
 }
-add_action( 'wp_enqueue_scripts', 'taptosell_enqueue_frontend_styles' );

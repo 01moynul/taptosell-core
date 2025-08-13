@@ -162,3 +162,255 @@
 .taptosell-container td a:hover {
     text-decoration: underline;
 }
+
+/* =================================================================
+ * 5. Supplier Dashboard Specifics
+ * ================================================================= */
+
+/* "My Product Submissions" Table Enhancements */
+.taptosell-container .wp-list-table {
+    margin-top: 0; /* Remove default margin to align with heading */
+}
+
+/* Status Badges Styling */
+.taptosell-container .status-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    color: #fff;
+    font-weight: bold;
+    font-size: 12px;
+    text-transform: uppercase;
+    display: inline-block;
+}
+
+.taptosell-container .status-approved {
+    background-color: #28a745; /* Green */
+}
+
+.taptosell-container .status-rejected {
+    background-color: #dc3545; /* Red */
+}
+
+.taptosell-container .status-pending {
+    background-color: #ffc107; /* Yellow */
+    color: #212529;
+}
+
+/* Rejection reason text style */
+.taptosell-container .rejection-reason {
+    color: #721c24;
+    font-size: 0.9em;
+    margin-top: 5px;
+    display: block;
+}
+
+/* "Add New Product" & "Edit Product" Form Sections */
+.taptosell-container #new-product-form .form-section,
+.taptosell-container #edit-product-form .form-section {
+    border: 1px solid #ddd;
+    padding: 20px;
+    margin: 25px 0;
+    border-radius: 5px;
+    background-color: #fcfcfc;
+}
+
+.taptosell-container #new-product-form .form-section h4,
+.taptosell-container #edit-product-form .form-section h4 {
+    margin-top: 0;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+/* Adjustments for the WP Editor in forms */
+.taptosell-container .wp-editor-wrap {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+/* Readonly fields for approved products */
+.taptosell-container input[readonly],
+.taptosell-container textarea[readonly] {
+    background-color: #f0f0f0;
+    cursor: not-allowed;
+    border-color: #ddd;
+}
+
+/* Price change request form styling */
+.taptosell-container .price-change-request-form {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 2px dashed #e0e0e0;
+}
+
+/* =================================================================
+ * 6. Dropshipper Dashboard & Catalog
+ * ================================================================= */
+
+/* Product Catalog Grid Layout */
+.product-catalog-grid,
+.my-products-list {
+    display: grid !important; /* <-- ADDED !important TO FORCE THE STYLE */
+    /* Create responsive columns: 1 on small screens, up to 4 on large screens */
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 25px; /* Spacing between cards */
+}
+
+/* Individual Product Card Styling */
+.taptosell-container .product-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background-color: #fff;
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+    padding: 0; /* Remove old padding */
+    overflow: hidden; /* Ensures border-radius applies to image */
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.taptosell-container .product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Product Card Image */
+.taptosell-container .product-card img {
+    max-width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1; /* Make images square */
+    object-fit: cover; /* Cover the area without distortion */
+}
+
+/* Container for the text content inside the card */
+.taptosell-container .product-card-content {
+    padding: 20px;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.taptosell-container .product-card-content h3 {
+    font-size: 1.1em;
+    margin: 0 0 10px 0;
+}
+
+.taptosell-container .product-card-content p {
+    margin: 0 0 15px 0;
+    font-size: 14px;
+    color: #555;
+}
+
+.taptosell-container .product-card-content p strong {
+    color: #333;
+}
+
+/* Form within the product card for setting SRP */
+.taptosell-container .product-card-content form {
+    margin-top: auto; /* Push form to the bottom of the card */
+}
+
+.taptosell-container .product-card-content form input {
+    max-width: 120px;
+    margin: 5px auto 10px;
+    text-align: center;
+}
+
+/* Sales Summary Chart Container */
+.taptosell-container .sales-summary-container {
+    padding: 20px;
+    background-color: #f9f9f9;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+}
+
+.taptosell-container .period-selector {
+    margin-bottom: 20px;
+}
+
+/* =================================================================
+ * 7. Shared Pages (Wallet, Notifications, etc.)
+ * ================================================================= */
+
+/* Wallet Page Specifics */
+.taptosell-wallet-container .wallet-balances {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.taptosell-wallet-container .wallet-balance-card {
+    padding: 20px;
+    border-radius: 8px;
+    color: #fff;
+}
+
+/* Specific colors for different balance types */
+.taptosell-wallet-container .balance-current { /* Dropshipper Main Balance */
+    background-color: #17a2b8; /* Info Blue */
+}
+
+.taptosell-wallet-container .balance-available { /* Supplier Available Balance */
+    background-color: #23B574; /* Primary Green */
+}
+
+.taptosell-wallet-container .balance-pending { /* Supplier Pending Balance */
+    background-color: #ffc107; /* Warning Yellow */
+    color: #212529;
+}
+
+.taptosell-wallet-container .wallet-balance-card h4 {
+    color: inherit; /* Inherit color from parent (white or black) */
+    margin-bottom: 5px;
+    font-size: 16px;
+    opacity: 0.9;
+}
+
+.taptosell-wallet-container .wallet-balance-card p {
+    font-size: 2.2em;
+    font-weight: bold;
+    margin: 0;
+    line-height: 1.2;
+}
+
+/* Styling for forms within the wallet (top-up, withdrawal) */
+.taptosell-wallet-container .wallet-form-section {
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+/* --- Notifications Panel Styling (Forceful Debug Version) --- */
+
+/* This rule is intentionally broad to override any conflicts */
+.taptosell-notifications-panel ul {
+    list-style: none !important;
+    padding-left: 0 !important;
+    margin-left: 0 !important;
+}
+
+.taptosell-notifications-panel li {
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+    background-color: #ffffff; /* Explicitly set a white background for read items */
+}
+
+/* This rule targets the class directly and uses !important to guarantee it applies */
+li.notification-unread {
+    background-color: #eef7ff !important;
+    font-weight: bold !important;
+}
+
+.taptosell-notifications-panel li a {
+    text-decoration: none;
+    color: #23B574; /* Use the primary green for links */
+}
+
+.taptosell-notifications-panel li small {
+    font-size: 0.85em;
+    color: #777;
+    font-weight: normal; /* Ensure date is not bold */
+    display: block;
+    margin-top: 5px;
+}

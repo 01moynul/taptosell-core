@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-// --- UPDATED (Auto Markup): Shortcode to display the product catalog for dropshippers. ---
+// --- UPDATED (UI/UX Styling): Shortcode to display the product catalog for dropshippers. ---
 function taptosell_product_catalog_shortcode() {
     if ( ! is_user_logged_in() ) { return '<p>You do not have permission to view this catalog. Please log in.</p>'; }
     $user = wp_get_current_user();
@@ -19,7 +19,6 @@ function taptosell_product_catalog_shortcode() {
     if (isset($_GET['srp_error']) && $_GET['srp_error'] === 'true') { echo '<div style="background-color: #f8d7da; color: #721c24; padding: 15px; margin-bottom: 20px;">Error: Price cannot be lower than SRP.</div>'; }
     if (isset($_GET['order_status'])) { /* ... existing order status notices ... */ }
 
-    // --- NEW: Get the dropshipper's default markup percentage ---
     $dropshipper_id = get_current_user_id();
     $default_markup = get_user_meta($dropshipper_id, '_default_markup_percentage', true);
     $has_markup = is_numeric($default_markup) && $default_markup > 0;
@@ -28,7 +27,7 @@ function taptosell_product_catalog_shortcode() {
     $product_query = new WP_Query($args);
 
     if ( $product_query->have_posts() ) {
-        echo '<div class="product-catalog-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px;">';
+        echo '<div class="product-catalog-grid">';
         while ( $product_query->have_posts() ) {
             $product_query->the_post();
             $product_id = get_the_ID();
@@ -40,35 +39,36 @@ function taptosell_product_catalog_shortcode() {
             $table_name = $wpdb->prefix . 'taptosell_dropshipper_products';
             $saved_srp = $wpdb->get_var( $wpdb->prepare("SELECT srp FROM $table_name WHERE dropshipper_id = %d AND taptosell_product_id = %d", $dropshipper_id, $product_id) );
 
-            // --- UPDATED: Determine the display price ---
-            $display_srp = $official_srp; // Default to official SRP
+            $display_srp = $official_srp;
             if ($saved_srp !== null) {
-                $display_srp = $saved_srp; // If user has a saved price, use that
+                $display_srp = $saved_srp;
             } elseif ($has_markup) {
-                // If no saved price BUT user has a default markup, calculate it
                 $display_srp = $taptosell_price * (1 + ($default_markup / 100));
             }
             
-            echo '<div class="product-card" style="border: 1px solid #eee; padding: 15px; text-align: center; display: flex; flex-direction: column; justify-content: space-between;">';
-            echo '<div>';
+            // --- UPDATED: Removed inline styles and added new content wrapper div ---
+            echo '<div class="product-card">';
             if ( has_post_thumbnail() ) { the_post_thumbnail('medium'); }
+            
+            // This new div is crucial for the new CSS styles
+            echo '<div class="product-card-content">';
             echo '<h3>' . get_the_title() . '</h3>';
             echo '<p><strong>Your Cost:</strong> RM ' . number_format($taptosell_price, 2) . '</p>';
             echo '<p><strong>SRP:</strong> RM ' . number_format($official_srp, 2) . '</p>';
             
             if ($is_dropshipper) {
-                echo '<form method="post" action="" style="margin-top: 10px;">';
+                echo '<form method="post" action="">';
                 wp_nonce_field('taptosell_save_srp_action', 'taptosell_srp_nonce');
                 echo '<input type="hidden" name="product_id" value="' . esc_attr($product_id) . '">';
                 echo '<label for="srp-' . esc_attr($product_id) . '">My Selling Price:</label>';
-                echo '<input type="number" step="0.01" name="srp" id="srp-' . esc_attr($product_id) . '" value="' . esc_attr(number_format($display_srp, 2, '.', '')) . '" style="width: 100px; text-align: center; margin: 5px 0 10px 0;">';
+                echo '<input type="number" step="0.01" name="srp" id="srp-' . esc_attr($product_id) . '" value="' . esc_attr(number_format($display_srp, 2, '.', '')) . '">';
                 echo '<button type="submit" name="taptosell_action" value="save_srp">Save My Price</button>';
                 echo '</form>';
             }
-            echo '</div>';
 
             if ($is_dropshipper) { /* ... Place Order button remains the same ... */ }
-            echo '</div>';
+            echo '</div>'; // End .product-card-content
+            echo '</div>'; // End .product-card
         }
         echo '</div>';
     } else { echo '<p>No products are available in the catalog yet.</p>'; }
@@ -143,7 +143,7 @@ add_action( 'template_redirect', 'taptosell_dropshipper_dashboard_access' );
 
 
 /**
- * Shortcode to display a dropshipper's list of products with their custom SRP.
+ * --- UPDATED (UI/UX Styling): Shortcode to display a dropshipper's list of products with their custom SRP. ---
  */
 function taptosell_my_products_shortcode() {
     if ( ! is_user_logged_in() ) { return ''; }
@@ -158,7 +158,7 @@ function taptosell_my_products_shortcode() {
         global $wpdb;
         $dropshipper_id = get_current_user_id();
         $table_name = $wpdb->prefix . 'taptosell_dropshipper_products';
-        $my_products_data = $wpdb->get_results( $wpdb->prepare("SELECT product_id, srp FROM $table_name WHERE dropshipper_id = %d ORDER BY date_added DESC", $dropshipper_id), OBJECT_K );
+        $my_products_data = $wpdb->get_results( $wpdb->prepare("SELECT taptosell_product_id, srp FROM $table_name WHERE dropshipper_id = %d ORDER BY date_added DESC", $dropshipper_id), OBJECT_K );
 
         if ( empty($my_products_data) ) {
             echo '<p>You have not yet set a price for any products. Please browse the <a href="/product-catalog">Product Catalog</a> to get started.</p>';
@@ -170,16 +170,22 @@ function taptosell_my_products_shortcode() {
 
         if ( $my_products_query->have_posts() ) {
             echo '<h2>My Products</h2>';
-            echo '<div class="my-products-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px;">';
+            // --- UPDATED: Use the my-products-list class for the grid ---
+            echo '<div class="my-products-list">';
             while ( $my_products_query->have_posts() ) {
                 $my_products_query->the_post();
                 $product_id = get_the_ID();
                 $my_srp = $my_products_data[$product_id]->srp;
-                echo '<div class="product-card" style="border: 1px solid #eee; padding: 15px; text-align: center;">';
-                if ( has_post_thumbnail() ) { the_post_thumbnail('medium', ['style' => 'max-width: 100%; height: auto;']); }
+                
+                // --- UPDATED: Use the new product card structure ---
+                echo '<div class="product-card">';
+                if ( has_post_thumbnail() ) { the_post_thumbnail('medium'); }
+                
+                echo '<div class="product-card-content">';
                 echo '<h3 style="font-size: 1.2em; margin: 10px 0;">' . get_the_title() . '</h3>';
                 echo '<p><strong>My Selling Price:</strong> RM ' . number_format($my_srp, 2) . '</p>';
-                echo '</div>';
+                echo '</div>'; // End .product-card-content
+                echo '</div>'; // End .product-card
             }
             echo '</div>';
         }

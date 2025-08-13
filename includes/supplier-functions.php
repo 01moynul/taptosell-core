@@ -218,7 +218,7 @@ function taptosell_product_upload_form_shortcode() {
 add_shortcode('supplier_product_upload_form', 'taptosell_product_upload_form_shortcode');
 
 
-// --- UPDATED (Post-Approval Edit): Shortcode for the supplier's "My Products" list ---
+// --- UPDATED (UI/UX Styling): Shortcode for the supplier's "My Products" list ---
 function taptosell_supplier_my_products_shortcode() {
     if ( ! is_user_logged_in() ) return '';
     $user = wp_get_current_user();
@@ -232,7 +232,8 @@ function taptosell_supplier_my_products_shortcode() {
     $args = ['post_type' => 'product', 'author' => get_current_user_id(), 'posts_per_page' => -1, 'post_status' => ['publish', 'draft', 'pending', 'rejected']];
     $product_query = new WP_Query($args);
     if ( $product_query->have_posts() ) {
-        echo '<table style="width: 100%; border-collapse: collapse;"><thead><tr><th>Image</th><th>Name</th><th>SKU</th><th>Stock</th><th>Category</th><th>Brands</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+        // --- UPDATED: Use the standard WordPress table class for better compatibility ---
+        echo '<table class="wp-list-table widefat fixed striped"><thead><tr><th>Image</th><th>Name</th><th>SKU</th><th>Stock</th><th>Category</th><th>Brands</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
         while ( $product_query->have_posts() ) {
             $product_query->the_post();
             $product_id = get_the_ID();
@@ -252,22 +253,23 @@ function taptosell_supplier_my_products_shortcode() {
             echo '<td>' . (empty($brand_names) ? '—' : esc_html(implode(', ', $brand_names))) . '</td>';
             echo '<td>';
             
+            // --- UPDATED: Use new CSS classes for status badges ---
             if ($status === 'publish') {
-                echo '<span style="background-color: #d4edda; color: #155724; padding: 3px 8px; border-radius: 4px;">Approved</span>';
+                echo '<span class="status-badge status-approved">Approved</span>';
             } elseif ($status === 'rejected') {
-                echo '<span style="background-color: #f8d7da; color: #721c24; padding: 3px 8px; border-radius: 4px;">Rejected</span>';
+                echo '<span class="status-badge status-rejected">Rejected</span>';
                 $reason = get_post_meta($product_id, '_rejection_reason', true);
                 if (!empty($reason)) {
-                    echo '<br><small style="color: #721c24;"><em>Reason: ' . esc_html($reason) . '</em></small>';
+                    // Use the new CSS class for the rejection reason
+                    echo '<em class="rejection-reason">Reason: ' . esc_html($reason) . '</em>';
                 }
             } else { // Covers 'draft' and 'pending'
-                echo '<span style="background-color: #fff3cd; color: #856404; padding: 3px 8px; border-radius: 4px;">Pending Review</span>';
+                echo '<span class="status-badge status-pending">Pending Review</span>';
             }
 
             echo '</td>';
             echo '<td>';
             
-            // --- UPDATED: Allow editing for PUBLISHED products as well ---
             if ($status === 'draft' || $status === 'pending' || $status === 'rejected' || $status === 'publish') {
                 $edit_page = get_page_by_title('Edit Product');
                 if ($edit_page) {

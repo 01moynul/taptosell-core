@@ -28,7 +28,7 @@ function taptosell_add_wallet_transaction($user_id, $amount, $type, $details) {
 }
 
 /**
- * Shortcode to display the user's wallet: balance, history, and forms.
+ * --- UPDATED (UI/UX Styling): Shortcode to display the user's wallet: balance, history, and forms. ---
  */
 function taptosell_wallet_shortcode() {
     if ( ! is_user_logged_in() ) {
@@ -41,24 +41,26 @@ function taptosell_wallet_shortcode() {
 
     ob_start();
     ?>
-    <div class="taptosell-wallet-container">
+    <div class="taptosell-container taptosell-wallet-container">
         <h2>My Wallet</h2>
 
-        <?php 
+        <?php
         if (isset($_GET['topup']) && $_GET['topup'] === 'success') { echo '<div style="background-color: #d4edda; color: #155724; padding: 15px; margin-bottom: 20px;">Top-up successful!</div>'; }
         if (isset($_GET['withdrawal']) && $_GET['withdrawal'] === 'success') { echo '<div style="background-color: #d4edda; color: #155724; padding: 15px; margin-bottom: 20px;">Withdrawal request submitted successfully.</div>'; }
         if (isset($_GET['withdrawal']) && $_GET['withdrawal'] === 'failed') { echo '<div style="background-color: #f8d7da; color: #721c24; padding: 15px; margin-bottom: 20px;">Error: Invalid withdrawal amount.</div>'; }
-        
+
         // --- RENDER VIEW BASED ON USER ROLE ---
         if (in_array('dropshipper', $roles)) {
             // --- DROPSHIPPER VIEW ---
             $balance = taptosell_get_user_wallet_balance($user_id);
             ?>
-            <div class="wallet-balance" style="background-color: #f1f1f1; padding: 20px; margin-bottom: 20px;">
-                <h4>Current Balance</h4>
-                <p style="font-size: 2em; font-weight: bold; margin: 0;">RM <?php echo number_format($balance, 2); ?></p>
+            <div class="wallet-balances">
+                <div class="wallet-balance-card balance-current">
+                    <h4>Current Balance</h4>
+                    <p>RM <?php echo number_format($balance, 2); ?></p>
+                </div>
             </div>
-            <div class="wallet-top-up" style="margin-bottom: 30px;">
+            <div class="wallet-form-section">
                 <h4>Top-Up Wallet</h4>
                 <p><em>This is a test form. No real payment will be processed.</em></p>
                 <form method="post" action="">
@@ -72,15 +74,13 @@ function taptosell_wallet_shortcode() {
         } elseif (in_array('supplier', $roles)) {
             // --- SUPPLIER VIEW ---
             $available_balance = taptosell_get_user_wallet_balance($user_id);
-            
+
+            // This logic for pending balance remains unchanged
             $pending_balance = 0;
-            // --- This logic for pending balance remains unchanged ---
             $my_product_ids = get_posts(['post_type' => 'product', 'author' => $user_id, 'posts_per_page' => -1, 'fields' => 'ids']);
             if (!empty($my_product_ids)) {
                 $shipped_orders_query = new WP_Query([
-                    'post_type' => 'taptosell_order',
-                    'post_status' => 'wc-shipped',
-                    'posts_per_page' => -1,
+                    'post_type' => 'taptosell_order', 'post_status' => 'wc-shipped', 'posts_per_page' => -1,
                     'meta_query' => [['key' => '_product_id', 'value' => $my_product_ids, 'compare' => 'IN']],
                 ]);
                 if ($shipped_orders_query->have_posts()) {
@@ -94,16 +94,18 @@ function taptosell_wallet_shortcode() {
                 wp_reset_postdata();
             }
             ?>
-            <div class="wallet-balance" style="background-color: #d4edda; color: #155724; padding: 20px; margin-bottom: 10px;">
-                <h4>Available for Withdrawal</h4>
-                <p style="font-size: 2em; font-weight: bold; margin: 0;">RM <?php echo number_format($available_balance, 2); ?></p>
-            </div>
-            <div class="wallet-balance" style="background-color: #fff3cd; color: #856404; padding: 20px; margin-bottom: 20px;">
-                <h4>Pending Balance</h4>
-                <p style="font-size: 1.5em; font-weight: bold; margin: 0;">RM <?php echo number_format($pending_balance, 2); ?></p>
+            <div class="wallet-balances">
+                <div class="wallet-balance-card balance-available">
+                    <h4>Available for Withdrawal</h4>
+                    <p>RM <?php echo number_format($available_balance, 2); ?></p>
+                </div>
+                <div class="wallet-balance-card balance-pending">
+                    <h4>Pending Balance</h4>
+                    <p>RM <?php echo number_format($pending_balance, 2); ?></p>
+                </div>
             </div>
 
-            <div class="wallet-withdrawal" style="margin-bottom: 30px;">
+            <div class="wallet-form-section">
                 <h4>Request Withdrawal</h4>
                 <form method="post" action="">
                     <?php wp_nonce_field('taptosell_withdrawal_action', 'taptosell_withdrawal_nonce'); ?>
@@ -121,44 +123,36 @@ function taptosell_wallet_shortcode() {
 
             <form method="get" action="" style="margin-bottom: 20px;">
                 <?php
-                if (is_page()) {
-                    echo '<input type="hidden" name="page_id" value="' . get_the_ID() . '">';
-                }
+                if (is_page()) { echo '<input type="hidden" name="page_id" value="' . get_the_ID() . '">'; }
                 ?>
                 <label for="start_date">From:</label>
                 <input type="date" id="start_date" name="start_date" value="<?php echo isset($_GET['start_date']) ? esc_attr($_GET['start_date']) : ''; ?>">
                 <label for="end_date" style="margin-left: 10px;">To:</label>
                 <input type="date" id="end_date" name="end_date" value="<?php echo isset($_GET['end_date']) ? esc_attr($_GET['end_date']) : ''; ?>">
                 <button type="submit" style="margin-left: 10px;">Filter</button>
-                
-                <?php if ( ! empty( $_GET['start_date'] ) && ! empty( $_GET['end_date'] ) ) : ?>
+
+                <?php if ( ! empty( $_GET['start_date'] ) || ! empty( $_GET['end_date'] ) ) : ?>
                     <a href="<?php echo esc_url( get_permalink( get_the_ID() ) ); ?>" style="margin-left: 5px; text-decoration: none;">Clear</a>
                 <?php endif; ?>
-
             </form>
 
             <?php
             global $wpdb;
             $table_name = $wpdb->prefix . 'taptosell_wallet_transactions';
-            
             $sql = "SELECT * FROM $table_name WHERE user_id = %d";
             $params = [$user_id];
-
             if (!empty($_GET['start_date']) && !empty($_GET['end_date'])) {
                 $start_date = sanitize_text_field($_GET['start_date']) . ' 00:00:00';
                 $end_date = sanitize_text_field($_GET['end_date']) . ' 23:59:59';
-                
                 $sql .= " AND transaction_date BETWEEN %s AND %s";
                 $params[] = $start_date;
                 $params[] = $end_date;
             }
-
             $sql .= " ORDER BY transaction_date DESC";
-            
             $transactions = $wpdb->get_results($wpdb->prepare($sql, ...$params));
-
             if ($transactions) {
-                echo '<table style="width: 100%; border-collapse: collapse;"><thead><tr><th>Date</th><th>Type</th><th>Details</th><th>Amount (RM)</th></tr></thead><tbody>';
+                // Use the standard WordPress table class
+                echo '<table class="wp-list-table widefat fixed striped"><thead><tr><th>Date</th><th>Type</th><th>Details</th><th>Amount (RM)</th></tr></thead><tbody>';
                 foreach ($transactions as $tx) {
                     $amount_style = ($tx->amount > 0) ? 'color: green;' : 'color: red;';
                     echo '<tr>';
