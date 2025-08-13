@@ -1,0 +1,43 @@
+/* * TapToSell Core Frontend Styles
+ */
+
+/* Main container for our shortcode content to add some spacing */
+.taptosell-container {
+    padding: 20px;
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    margin-top: 20px;
+}
+
+/* Primary Button Styling */
+.taptosell-container button,
+.taptosell-container input[type="submit"],
+.taptosell-container .button-primary {
+    background-color: #23B574 !important; /* Primary Green */
+    border-color: #1a8c5a !important;
+    color: #ffffff !important;
+    padding: 10px 20px !important;
+    font-size: 14px !important;
+    font-weight: bold;
+    text-transform: uppercase;
+    border-radius: 5px !important;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+/* Button Hover State */
+.taptosell-container button:hover,
+.taptosell-container input[type="submit"]:hover,
+.taptosell-container .button-primary:hover {
+    background-color: #1a8c5a !important; /* Darker Green */
+}
+
+/* Secondary Button Styling */
+.taptosell-container .button-secondary {
+    background-color: #6c757d !important;
+    border-color: #5a6268 !important;
+}
+
+.taptosell-container .button-secondary:hover {
+    background-color: #5a6268 !important;
+}

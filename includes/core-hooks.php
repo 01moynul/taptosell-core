@@ -116,3 +116,22 @@ function taptosell_remove_custom_roles() {
     remove_role('dropshipper');
 }
 register_deactivation_hook( TAPTOSELL_CORE_PATH . 'taptosell-core.php', 'taptosell_remove_custom_roles' );
+
+/**
+ * --- NEW: Enqueue the custom stylesheet for the plugin's front-end pages. ---
+ */
+function taptosell_enqueue_frontend_styles() {
+    // We only want to load this stylesheet on pages that contain our shortcodes.
+    // This is a simple check for now. We can make it more robust if needed.
+    global $post;
+    if ( is_a( $post, 'WP_Post' ) && has_shortcode( $post->post_content, 'taptosell_') ) {
+        $plugin_version = '1.2.0'; // We can get this dynamically later if needed.
+        wp_enqueue_style(
+            'taptosell-frontend-styles', // A unique name for our stylesheet
+            plugin_dir_url( dirname( __FILE__ ) ) . 'assets/css/taptosell-styles.css', // The full URL to the file
+            [], // An array of any style dependencies (we have none)
+            $plugin_version // The version number for cache-busting
+        );
+    }
+}
+add_action( 'wp_enqueue_scripts', 'taptosell_enqueue_frontend_styles' );

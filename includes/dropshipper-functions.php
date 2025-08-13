@@ -438,7 +438,7 @@ function taptosell_handle_shopee_connect() {
 add_action('init', 'taptosell_handle_shopee_connect');
 
 /**
- * --- NEW: Shortcode to display a sales summary chart. ---
+ * --- UPDATED: Shortcode to display a dynamic sales summary chart. ---
  * Usage: [dropshipper_sales_summary]
  */
 function taptosell_sales_summary_shortcode() {
@@ -447,16 +447,19 @@ function taptosell_sales_summary_shortcode() {
         return '';
     }
 
+    // --- NEW: Determine the time period from URL, default to 7 days ---
+    $period = isset($_GET['period']) && $_GET['period'] === '30' ? 30 : 7;
+    $chart_title = "Last " . $period . " Days Sales Summary";
+
     $user_id = get_current_user_id();
     $sales_data = [];
     $date_labels = [];
 
-    // Loop through the last 7 days, including today
-    for ($i = 6; $i >= 0; $i--) {
+    // --- UPDATED: Loop for the selected number of days ---
+    for ($i = $period - 1; $i >= 0; $i--) {
         $date = date('Y-m-d', strtotime("-$i days"));
-        $date_labels[] = date('M d', strtotime($date)); // Format for display, e.g., "Aug 13"
+        $date_labels[] = date('M d', strtotime($date));
 
-        // Query to get all completed orders for the current user on this specific day
         $daily_orders_query = new WP_Query([
             'post_type'      => 'taptosell_order',
             'author'         => $user_id,
@@ -465,15 +468,13 @@ function taptosell_sales_summary_shortcode() {
             'date_query'     => [
                 ['year' => date('Y', strtotime($date)), 'month' => date('m', strtotime($date)), 'day' => date('d', strtotime($date))],
             ],
-            'meta_key'       => '_order_cost', // Ensure we only get orders that have a cost associated
+            'meta_key'       => '_order_cost',
         ]);
 
         $daily_total = 0;
         if ($daily_orders_query->have_posts()) {
             while ($daily_orders_query->have_posts()) {
                 $daily_orders_query->the_post();
-                // For a sales chart, we should sum the SRP, not the cost.
-                // We'll need to look up the SRP the dropshipper set for this product.
                 $product_id = get_post_meta(get_the_ID(), '_product_id', true);
 
                 global $wpdb;
@@ -495,8 +496,14 @@ function taptosell_sales_summary_shortcode() {
 
     ob_start();
     ?>
-    <div class="sales-summary-container" style="max-width: 800px; margin-top: 20px;">
-        <h3>Last 7 Days Sales Summary</h3>
+    <div class="taptosell-container sales-summary-container" style="max-width: 800px; margin-top: 20px;">
+        
+        <div class="period-selector" style="margin-bottom: 15px;">
+            <a href="<?php echo esc_url(add_query_arg('period', '7')); ?>" class="button <?php echo ($period == 7 ? 'button-primary' : 'button-secondary'); ?>">Last 7 Days</a>
+            <a href="<?php echo esc_url(add_query_arg('period', '30')); ?>" class="button <?php echo ($period == 30 ? 'button-primary' : 'button-secondary'); ?>" style="margin-left: 10px;">Last 30 Days</a>
+        </div>
+
+        <h3><?php echo esc_html($chart_title); ?></h3>
         <canvas id="salesSummaryChart"></canvas>
     </div>
 
@@ -505,25 +512,19 @@ function taptosell_sales_summary_shortcode() {
         document.addEventListener('DOMContentLoaded', function() {
             const ctx = document.getElementById('salesSummaryChart').getContext('2d');
             const salesChart = new Chart(ctx, {
-                type: 'line', // Type of chart
+                type: 'line',
                 data: {
-                    labels: <?php echo json_encode($date_labels); ?>, // Dates for the X-axis
+                    labels: <?php echo json_encode($date_labels); ?>,
                     datasets: [{
                         label: 'Total Sales (RM)',
-                        data: <?php echo json_encode($sales_data); ?>, // Sales data for the Y-axis
+                        data: <?php echo json_encode($sales_data); ?>,
                         backgroundColor: 'rgba(35, 181, 116, 0.2)',
                         borderColor: 'rgba(35, 181, 116, 1)',
                         borderWidth: 2,
                         tension: 0.1
                     }]
                 },
-                options: {
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
+                options: { scales: { y: { beginAtZero: true } } }
             });
         });
     </script>
