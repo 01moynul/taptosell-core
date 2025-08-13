@@ -630,3 +630,47 @@ function taptosell_handle_price_change_request() {
     exit;
 }
 add_action('init', 'taptosell_handle_price_change_request');
+
+/**
+ * --- NEW: Adds a default markup field to the user profile screen. ---
+ */
+function taptosell_add_markup_field_to_profile($user) {
+    // Only show for dropshippers
+    if (!current_user_can('edit_user', $user->ID) || !in_array('dropshipper', (array)$user->roles)) {
+        return;
+    }
+
+    $markup = get_user_meta($user->ID, '_default_markup_percentage', true);
+    ?>
+    <table class="form-table">
+        <tr>
+            <th><label for="default_markup_percentage">Default Markup (%)</label></th>
+            <td>
+                <input type="number" name="default_markup_percentage" id="default_markup_percentage" value="<?php echo esc_attr($markup); ?>" class="regular-text" placeholder="e.g., 30">
+                <p class="description">Set a default markup percentage to auto-calculate selling prices in the catalog.</p>
+            </td>
+        </tr>
+    </table>
+    <?php
+}
+// Hook into the same actions as the other profile fields
+add_action('show_user_profile', 'taptosell_add_markup_field_to_profile');
+add_action('edit_user_profile', 'taptosell_add_markup_field_to_profile');
+
+
+/**
+ * --- NEW: Saves the default markup field when a user profile is updated. ---
+ */
+function taptosell_save_markup_field($user_id) {
+    if (!current_user_can('edit_user', $user_id)) {
+        return false;
+    }
+
+    // Save the default markup percentage
+    if (isset($_POST['default_markup_percentage'])) {
+        update_user_meta($user_id, '_default_markup_percentage', sanitize_text_field($_POST['default_markup_percentage']));
+    }
+}
+// Hook into the same save actions as the other profile fields
+add_action('personal_options_update', 'taptosell_save_markup_field');
+add_action('edit_user_profile_update', 'taptosell_save_markup_field');

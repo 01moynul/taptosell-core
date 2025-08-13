@@ -4,9 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-/**
- * Shortcode to display the product catalog for dropshippers.
- */
+// --- UPDATED (Auto Markup): Shortcode to display the product catalog for dropshippers. ---
 function taptosell_product_catalog_shortcode() {
     if ( ! is_user_logged_in() ) { return '<p>You do not have permission to view this catalog. Please log in.</p>'; }
     $user = wp_get_current_user();
@@ -17,14 +15,14 @@ function taptosell_product_catalog_shortcode() {
 
     ob_start();
 
-    // Notices for SRP saving
     if (isset($_GET['srp_saved']) && $_GET['srp_saved'] === 'true') { echo '<div style="background-color: #d4edda; color: #155724; padding: 15px; margin-bottom: 20px;">Your price has been saved successfully!</div>'; }
-    // NEW: Notice for SRP error
     if (isset($_GET['srp_error']) && $_GET['srp_error'] === 'true') { echo '<div style="background-color: #f8d7da; color: #721c24; padding: 15px; margin-bottom: 20px;">Error: Price cannot be lower than SRP.</div>'; }
-    
-    // Notices for ordering (unchanged)
-    if (isset($_GET['order_status'])) { /* ... code remains the same ... */ }
+    if (isset($_GET['order_status'])) { /* ... existing order status notices ... */ }
 
+    // --- NEW: Get the dropshipper's default markup percentage ---
+    $dropshipper_id = get_current_user_id();
+    $default_markup = get_user_meta($dropshipper_id, '_default_markup_percentage', true);
+    $has_markup = is_numeric($default_markup) && $default_markup > 0;
 
     $args = ['post_type' => 'product', 'post_status' => 'publish', 'posts_per_page' => -1];
     $product_query = new WP_Query($args);
@@ -36,26 +34,33 @@ function taptosell_product_catalog_shortcode() {
             $product_id = get_the_ID();
             $supplier_price = (float) get_post_meta($product_id, '_price', true);
             $taptosell_price = $supplier_price * taptosell_get_commission_multiplier();
-            $official_srp = $taptosell_price * 1.30; // SRP is defined by TapToSell (usually Supplier Price + 30%) [cite: 7]
+            $official_srp = $taptosell_price * 1.30;
             
             global $wpdb;
-            $dropshipper_id = get_current_user_id();
             $table_name = $wpdb->prefix . 'taptosell_dropshipper_products';
-            $saved_srp = $wpdb->get_var( $wpdb->prepare("SELECT srp FROM $table_name WHERE dropshipper_id = %d AND product_id = %d", $dropshipper_id, $product_id) );
-            $display_srp = ($saved_srp !== null) ? $saved_srp : $official_srp;
+            $saved_srp = $wpdb->get_var( $wpdb->prepare("SELECT srp FROM $table_name WHERE dropshipper_id = %d AND taptosell_product_id = %d", $dropshipper_id, $product_id) );
+
+            // --- UPDATED: Determine the display price ---
+            $display_srp = $official_srp; // Default to official SRP
+            if ($saved_srp !== null) {
+                $display_srp = $saved_srp; // If user has a saved price, use that
+            } elseif ($has_markup) {
+                // If no saved price BUT user has a default markup, calculate it
+                $display_srp = $taptosell_price * (1 + ($default_markup / 100));
+            }
             
             echo '<div class="product-card" style="border: 1px solid #eee; padding: 15px; text-align: center; display: flex; flex-direction: column; justify-content: space-between;">';
             echo '<div>';
             if ( has_post_thumbnail() ) { the_post_thumbnail('medium'); }
             echo '<h3>' . get_the_title() . '</h3>';
-            echo '<p><strong>Your Cost:</strong> RM ' . number_format($taptosell_price, 2) . '</p>'; // TapToSell Price (Not editable) [cite: 12]
-            echo '<p><strong>SRP:</strong> RM ' . number_format($official_srp, 2) . '</p>'; // SRP (For reference only) [cite: 13]
+            echo '<p><strong>Your Cost:</strong> RM ' . number_format($taptosell_price, 2) . '</p>';
+            echo '<p><strong>SRP:</strong> RM ' . number_format($official_srp, 2) . '</p>';
             
             if ($is_dropshipper) {
                 echo '<form method="post" action="" style="margin-top: 10px;">';
                 wp_nonce_field('taptosell_save_srp_action', 'taptosell_srp_nonce');
                 echo '<input type="hidden" name="product_id" value="' . esc_attr($product_id) . '">';
-                echo '<label for="srp-' . esc_attr($product_id) . '">My Selling Price:</label>'; // 'My Selling Price' - Editable field [cite: 14]
+                echo '<label for="srp-' . esc_attr($product_id) . '">My Selling Price:</label>';
                 echo '<input type="number" step="0.01" name="srp" id="srp-' . esc_attr($product_id) . '" value="' . esc_attr(number_format($display_srp, 2, '.', '')) . '" style="width: 100px; text-align: center; margin: 5px 0 10px 0;">';
                 echo '<button type="submit" name="taptosell_action" value="save_srp">Save My Price</button>';
                 echo '</form>';
