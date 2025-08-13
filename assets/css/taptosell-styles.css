@@ -1,15 +1,47 @@
-/* * TapToSell Core Frontend Styles
+/**
+ * TapToSell Core Frontend Styles
+ *
+ * This stylesheet defines the visual appearance for all frontend components
+ * of the TapToSell plugin, ensuring a consistent brand experience.
+ *
+ * @version 1.2.0
  */
 
-/* Main container for our shortcode content to add some spacing */
+/* =================================================================
+ * 1. Typography & General Layout
+ * ================================================================= */
+
+/* Main container for shortcode content to add consistent spacing and background */
 .taptosell-container {
-    padding: 20px;
-    background-color: #fff;
+    padding: 25px;
+    background-color: #ffffff; /* Clean white background */
     border: 1px solid #e0e0e0;
     margin-top: 20px;
+    font-family: 'Nunito', sans-serif; /* Default body font */
+    color: #333;
 }
 
-/* Primary Button Styling */
+/* Headings within our container (e.g., "My Wallet", "My Products") */
+.taptosell-container h2,
+.taptosell-container h3 {
+    font-family: 'Poppins', sans-serif; /* Bold title font */
+    color: #222831; /* Modern Black for titles */
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+.taptosell-container h4 {
+    font-family: 'Poppins', sans-serif;
+    color: #222831;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+/* =================================================================
+ * 2. Buttons
+ * ================================================================= */
+
+/* Primary Button Styling (e.g., "Add Product", "Save My Price") */
 .taptosell-container button,
 .taptosell-container input[type="submit"],
 .taptosell-container .button-primary {
@@ -22,22 +54,111 @@
     text-transform: uppercase;
     border-radius: 5px !important;
     cursor: pointer;
-    transition: background-color 0.3s ease;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+    line-height: normal;
 }
 
-/* Button Hover State */
+/* Primary Button Hover State */
 .taptosell-container button:hover,
 .taptosell-container input[type="submit"]:hover,
 .taptosell-container .button-primary:hover {
     background-color: #1a8c5a !important; /* Darker Green */
+    border-color: #1a8c5a !important;
 }
 
-/* Secondary Button Styling */
+/* Secondary Button Styling (e.g., "Last 30 Days") */
 .taptosell-container .button-secondary {
     background-color: #6c757d !important;
     border-color: #5a6268 !important;
+    color: #ffffff !important;
 }
 
 .taptosell-container .button-secondary:hover {
     background-color: #5a6268 !important;
+    border-color: #545b62 !important;
+}
+
+/* =================================================================
+ * 3. Forms
+ * ================================================================= */
+
+/* General styling for form elements */
+.taptosell-container form p {
+    margin-bottom: 15px;
+}
+
+.taptosell-container form label {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 5px;
+}
+
+/* Styling for all text-based input fields */
+.taptosell-container input[type="text"],
+.taptosell-container input[type="email"],
+.taptosell-container input[type="password"],
+.taptosell-container input[type="number"],
+.taptosell-container input[type="url"],
+.taptosell-container select,
+.taptosell-container textarea {
+    width: 100%;
+    max-width: 450px; /* Limit max width for readability */
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 15px;
+    transition: border-color 0.3s ease;
+}
+
+.taptosell-container input:focus,
+.taptosell-container select:focus,
+.taptosell-container textarea:focus {
+    border-color: #23B574; /* Highlight with primary color on focus */
+    outline: none;
+    box-shadow: 0 0 5px rgba(35, 181, 116, 0.2);
+}
+
+/* =================================================================
+ * 4. Tables
+ * ================================================================= */
+
+/* Styling for data tables (e.g., "My Products", "Transaction History") */
+.taptosell-container table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.taptosell-container th,
+.taptosell-container td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.taptosell-container thead th {
+    background-color: #f9f9f9;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 13px;
+    color: #555;
+}
+
+.taptosell-container tbody tr:hover {
+    background-color: #f5f5f5;
+}
+
+.taptosell-container td a {
+    color: #23B574;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.taptosell-container td a:hover {
+    text-decoration: underline;
 }
