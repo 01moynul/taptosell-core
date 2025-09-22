@@ -38,3 +38,35 @@ function taptosell_role_based_login_redirect( $redirect_to, $request, $user ) {
     return $redirect_to;
 }
 add_filter( 'login_redirect', 'taptosell_role_based_login_redirect', 10, 3 );
+
+// ... (at the end of the file, after the taptosell_login_redirect function)
+
+/**
+ * Conditionally adds Login or Logout links to the primary menu.
+ * This filter checks if the user is logged in and appends the correct link.
+ *
+ * @param string $items The HTML list of menu items.
+ * @param stdClass $args An object containing menu arguments.
+ * @return string The modified HTML list of menu items.
+ */
+function taptosell_add_login_logout_links( $items, $args ) {
+    
+    // Check if this is the 'primary-menu' (which Divi uses)
+    if ( isset($args->theme_location) && $args->theme_location == 'primary-menu' ) {
+
+        if ( is_user_logged_in() ) {
+            // User is logged in: Add a "Logout" link
+            $logout_url = wp_logout_url( home_url( '/' ) ); // Redirect to homepage on logout
+            $items .= '<li class="menu-item tts-logout-link"><a href="' . esc_url( $logout_url ) . '">Logout</a></li>';
+        
+        } else {
+            // User is logged out: Add our "Login" modal trigger
+            $items .= '<li class="menu-item tts-login-link"><a href="#" class="tts-login-trigger">Login</a></li>';
+        }
+    }
+    
+    return $items;
+}
+add_filter( 'wp_nav_menu_items', 'taptosell_add_login_logout_links', 10, 2 );
+
+?>
