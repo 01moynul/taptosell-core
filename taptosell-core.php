@@ -15,6 +15,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // Define a constant for the plugin path
 define( 'TAPTOSELL_CORE_PATH', plugin_dir_path( __FILE__ ) );
+define( 'TAPTOSELL_CORE_URL', plugin_dir_url( __FILE__ ) );
+define( 'TAPTOSELL_CORE_VERSION', '1.2.0' ); // Get version from plugin header
 
 // Include all the core functionality files.
 require_once TAPTOSELL_CORE_PATH . 'includes/core-hooks.php';
@@ -35,4 +37,5 @@ require_once TAPTOSELL_CORE_PATH . 'includes/helpers.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/api-shopee.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/subscription-functions.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/notifications-functions.php';
+require_once TAPTOSELL_CORE_PATH . 'includes/modal-login.php';
 ?>

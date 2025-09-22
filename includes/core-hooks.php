@@ -118,19 +118,26 @@ function taptosell_remove_custom_roles() {
 register_deactivation_hook( TAPTOSELL_CORE_PATH . 'taptosell-core.php', 'taptosell_remove_custom_roles' );
 
 /**
- * --- FINAL CORRECTED VERSION: Enqueue the custom stylesheet for the plugin's front-end pages. ---
+ * Enqueue frontend styles and scripts.
  */
 function taptosell_enqueue_frontend_styles() {
-    // This simplified function loads the stylesheet on all front-end pages,
-    // which is more reliable than checking for specific shortcodes and avoids loading-order issues.
-    if ( ! is_admin() ) {
-        $plugin_version = '1.2.3'; // Incremented version to ensure cache is busted.
-        wp_enqueue_style(
-            'taptosell-frontend-styles', // A unique name for our stylesheet
-            plugin_dir_url( dirname( __FILE__ ) ) . 'assets/css/taptosell-styles.css', // The full URL to the file
-            [], // An array of any style dependencies (we have none)
-            $plugin_version // The version number for cache-busting
-        );
-    }
+    // Enqueue the main plugin stylesheet
+    wp_enqueue_style(
+        'taptosell-core-styles',
+        TAPTOSELL_CORE_URL . 'assets/css/taptosell-styles.css',
+        array(),
+        TAPTOSELL_CORE_VERSION
+    );
+
+    // --- ADD THIS BLOCK ---
+    // Enqueue the new frontend script for modal, etc.
+    wp_enqueue_script(
+        'taptosell-frontend-scripts',
+        TAPTOSELL_CORE_URL . 'assets/js/frontend-scripts.js',
+        array('jquery'), // Make sure jQuery is loaded first
+        TAPTOSELL_CORE_VERSION,
+        true // Load in the footer
+    );
+    // ---------------------
 }
-add_action( 'wp_enqueue_scripts', 'taptosell_enqueue_frontend_styles' );
+add_action('wp_enqueue_scripts', 'taptosell_enqueue_frontend_styles');

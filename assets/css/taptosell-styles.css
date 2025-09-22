@@ -452,3 +452,142 @@ li.notification-unread {
 .taptosell-subscription-container .status-inactive {
     background-color: #dc3545; /* Red */
 }
+
+/* In: assets/css/taptosell-styles.css */
+
+/* =================================================================
+ * 8. Pop-up Login Modal
+ * ================================================================= */
+
+/* The modal background (overlay) */
+.taptosell-modal-overlay {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 9999; /* Sit on top of everything */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgb(0, 0, 0); /* Fallback color */
+    background-color: rgba(0, 0, 0, 0.6); /* Black w/ opacity */
+}
+
+/* Modal Content/Box */
+.taptosell-modal-content {
+    background-color: #ffffff;
+    margin: 10% auto; /* 10% from the top and centered */
+    padding: 30px;
+    border: 1px solid #888;
+    width: 90%;
+    max-width: 450px; /* Limit max width */
+    border-radius: 8px;
+    position: relative;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* The Close Button (x) */
+.taptosell-modal-close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    line-height: 1;
+    text-decoration: none;
+}
+
+.taptosell-modal-close:hover,
+.taptosell-modal-close:focus {
+    color: #000;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* Modal Title */
+.taptosell-modal-title {
+    font-family: 'Poppins', sans-serif;
+    color: #222831;
+    margin-top: 0;
+    margin-bottom: 25px;
+    text-align: center;
+    font-size: 24px;
+}
+
+/* --- WordPress Login Form Styling --- */
+
+/* Style the form labels */
+#taptosell-login-form label {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+/* Style the form input fields */
+#taptosell-login-form input[type="text"],
+#taptosell-login-form input[type="password"] {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 15px;
+    box-sizing: border-box; /* Important for 100% width */
+}
+
+/* Remember Me checkbox */
+#taptosell-login-form .login-remember {
+    margin-top: 15px;
+    font-family: 'Nunito', sans-serif;
+}
+
+#taptosell-login-form .login-remember label {
+    display: inline-block;
+    font-weight: normal;
+    color: #555;
+}
+
+/* Login Button */
+#taptosell-login-form .login-submit #taptosell-wp-submit {
+    width: 100%;
+    background-color: #23B574 !important; /* Primary Green */
+    border-color: #1a8c5a !important;
+    color: #ffffff !important;
+    padding: 12px 20px !important;
+    font-size: 16px !important;
+    font-weight: bold;
+    text-transform: uppercase;
+    border-radius: 5px !important;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    margin-top: 20px;
+}
+
+#taptosell-login-form .login-submit #taptosell-wp-submit:hover {
+    background-color: #1a8c5a !important; /* Darker Green */
+}
+
+/* Links at the bottom (Lost Password, Register) */
+.taptosell-modal-links {
+    text-align: center;
+    margin-top: 25px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+.taptosell-modal-links a {
+    color: #555;
+    text-decoration: none;
+    font-family: 'Nunito', sans-serif;
+    font-size: 14px;
+    margin: 0 10px;
+}
+
+.taptosell-modal-links a:hover {
+    color: #23B574;
+    text-decoration: underline;
+}

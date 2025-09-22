@@ -4,6 +4,10 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+// --- ADD THIS TEST LINE ---
+echo '';
+// -------------------------
+
 /**
  * Generates the HTML for the login modal.
  * This is hooked into wp_footer so it's available on all pages.
