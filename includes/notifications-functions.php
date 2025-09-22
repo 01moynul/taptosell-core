@@ -81,7 +81,7 @@ add_shortcode('taptosell_notifications_panel', 'taptosell_notifications_panel_sh
 
 
 /**
- * --- NEW: Checks for a notification ID in the URL on every page load. ---
+ * --- Checks for a notification ID in the URL on every page load. ---
  * If found, it marks the notification as read and redirects.
  */
 function taptosell_mark_notification_as_read() {
@@ -98,7 +98,7 @@ function taptosell_mark_notification_as_read() {
             $wpdb->prepare("SELECT * FROM $table_name WHERE id = %d AND user_id = %d", $notification_id, $current_user_id)
         );
 
-        if ($notification) {
+        if ($notification && $notification->is_read == 0) { // Only update if it's currently unread
             // Update the 'is_read' status in the database
             $wpdb->update(
                 $table_name,
@@ -109,6 +109,11 @@ function taptosell_mark_notification_as_read() {
             // Get the original URL without our tracking parameter
             $redirect_url = remove_query_arg('notification_id');
             // Redirect the user to the clean URL
+            wp_redirect($redirect_url);
+            exit;
+        } elseif ($notification && $notification->is_read == 1) {
+            // If it's already read, just redirect to avoid a loop
+            $redirect_url = remove_query_arg('notification_id');
             wp_redirect($redirect_url);
             exit;
         }

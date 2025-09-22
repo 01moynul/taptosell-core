@@ -8,7 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Create/update all custom roles, capabilities, and database tables on plugin activation.
  */
 function taptosell_add_custom_roles() {
-    // --- Role and capability definitions remain the same ---
+    // --- Role and capability definitions ---
     $custom_caps = [
         'manage_taptosell_settings' => true, 'manage_product_category' => true, 'edit_product_category' => true,
         'delete_product_category'   => true, 'assign_product_category' => true, 'manage_brand' => true,
@@ -71,7 +71,7 @@ function taptosell_add_custom_roles() {
     ) $charset_collate;";
     dbDelta($sql_price_changes);
 
-    // --- NEW: Table for Notifications ---
+    // Table for Notifications
     $notifications_table_name = $wpdb->prefix . 'taptosell_notifications';
     $sql_notifications = "CREATE TABLE $notifications_table_name (
         id bigint(20) NOT NULL AUTO_INCREMENT,
@@ -124,7 +124,7 @@ function taptosell_enqueue_frontend_styles() {
     // This simplified function loads the stylesheet on all front-end pages,
     // which is more reliable than checking for specific shortcodes and avoids loading-order issues.
     if ( ! is_admin() ) {
-        $plugin_version = '1.2.2'; // Incremented version to ensure cache is busted.
+        $plugin_version = '1.2.3'; // Incremented version to ensure cache is busted.
         wp_enqueue_style(
             'taptosell-frontend-styles', // A unique name for our stylesheet
             plugin_dir_url( dirname( __FILE__ ) ) . 'assets/css/taptosell-styles.css', // The full URL to the file
@@ -133,3 +133,4 @@ function taptosell_enqueue_frontend_styles() {
         );
     }
 }
+add_action( 'wp_enqueue_scripts', 'taptosell_enqueue_frontend_styles' );
