@@ -413,3 +413,42 @@ li.notification-unread {
     display: block;
     margin-top: 5px;
 }
+
+/* --- My Subscription Page Styling --- */
+
+.taptosell-subscription-container {
+    padding: 25px;
+    background-color: #f9f9f9;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    max-width: 500px;
+}
+
+.taptosell-subscription-container h3 {
+    margin-top: 0;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 15px;
+}
+
+.taptosell-subscription-container p {
+    font-size: 1.1em;
+    margin: 15px 0;
+}
+
+.taptosell-subscription-container .status-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    color: #fff;
+    font-weight: bold;
+    font-size: 1em;
+    text-transform: uppercase;
+    display: inline-block;
+}
+
+.taptosell-subscription-container .status-active {
+    background-color: #28a745; /* Green */
+}
+
+.taptosell-subscription-container .status-inactive {
+    background-color: #dc3545; /* Red */
+}

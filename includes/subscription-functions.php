@@ -107,7 +107,7 @@ function taptosell_can_user_link_product($user_id) {
 }
 
 /**
- * --- NEW: Shortcode to display a dropshipper's subscription status. ---
+ * --- UPDATED (UI/UX Styling): Shortcode to display a dropshipper's subscription status. ---
  * Usage: [dropshipper_my_subscription]
  */
 function taptosell_my_subscription_shortcode() {
@@ -122,22 +122,22 @@ function taptosell_my_subscription_shortcode() {
 
     // Set default display values
     $display_status = 'Inactive';
-    $status_color = '#721c24'; // Red for inactive
+    $status_class = 'status-inactive';
     $display_expiry = 'N/A';
 
     if ($status === 'active' && !empty($expiry_date) && strtotime($expiry_date) > time()) {
         $display_status = 'Active';
-        $status_color = '#155724'; // Green for active
+        $status_class = 'status-active';
         $display_expiry = date('F j, Y', strtotime($expiry_date));
     }
 
     ob_start();
     ?>
-    <div class="subscription-status-container" style="border: 1px solid #ddd; padding: 20px; max-width: 500px;">
-        <h3 style="margin-top: 0;">My Subscription</h3>
+    <div class="taptosell-container taptosell-subscription-container">
+        <h3>My Subscription</h3>
         <p>
             <strong>Status:</strong> 
-            <span style="background-color: <?php echo $status_color; ?>; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold;">
+            <span class="status-badge <?php echo esc_attr($status_class); ?>">
                 <?php echo esc_html($display_status); ?>
             </span>
         </p>
