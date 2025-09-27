@@ -274,25 +274,4 @@ function taptosell_handle_withdrawal_request() {
 }
 add_action('init', 'taptosell_handle_withdrawal_request');
 
-/**
- * --- NEW: Prevents caching on the "My Wallet" page. ---
- * This is a more forceful way to ensure the balance is always fresh on servers
- * with aggressive page caching. It should be used in addition to the wp_cache_* functions.
- */
-function taptosell_prevent_wallet_page_caching() {
-    // Check if we are on a singular page (not an archive, etc.)
-    if ( is_page() ) {
-        // Get the current page object
-        $page_obj = get_queried_object();
-        // Check if the page title is "My Wallet"
-        if ( isset($page_obj->post_title) && $page_obj->post_title === 'My Wallet' ) {
-            // This constant is a standard way to tell many caching plugins and hosts not to cache the current page.
-            if ( ! defined('DONOTCACHEPAGE') ) {
-                define('DONOTCACHEPAGE', true);
-            }
-        }
-    }
-}
-add_action( 'template_redirect', 'taptosell_prevent_wallet_page_caching' );
-
 ?>

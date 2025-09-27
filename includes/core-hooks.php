@@ -187,3 +187,38 @@ function taptosell_enqueue_frontend_logout_warning() {
     );
 }
 add_action('wp_enqueue_scripts', 'taptosell_enqueue_frontend_logout_warning');
+
+// In: includes/core-hooks.php
+
+/**
+ * --- NEW (Replaces old wallet-specific function): Prevents caching on key dynamic pages. ---
+ * Many live servers use aggressive page caching. This function checks if we are on a page
+ * that needs to display dynamic data (like status messages) and tells caching systems
+ * not to serve a stale version of the page.
+ */
+function taptosell_prevent_dynamic_page_caching() {
+    // This is our master list of page titles that should NEVER be cached.
+    $no_cache_pages = [
+        'My Wallet',
+        'Product Catalog',
+        'My Store',
+        'My Orders',
+        'Dropshipper Dashboard',
+        'Supplier Dashboard',
+    ];
+
+    // Check if the current request is for a single page.
+    if ( is_page() ) {
+        global $post;
+        // Check if the current page's title is in our no-cache list.
+        if ( isset($post->post_title) && in_array($post->post_title, $no_cache_pages) ) {
+            // This is the standard WordPress constant to prevent caching.
+            if ( ! defined('DONOTCACHEPAGE') ) {
+                define('DONOTCACHEPAGE', true);
+            }
+        }
+    }
+}
+add_action( 'template_redirect', 'taptosell_prevent_dynamic_page_caching' );
+
+?>
