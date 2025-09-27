@@ -141,3 +141,49 @@ function taptosell_enqueue_frontend_styles() {
     // ---------------------
 }
 add_action('wp_enqueue_scripts', 'taptosell_enqueue_frontend_styles');
+
+// In: includes/core-hooks.php
+
+/**
+ * --- NEW: Enqueues logout warning script on the FRONT-END for admins with pending tasks. ---
+ */
+function taptosell_enqueue_frontend_logout_warning() {
+    // Only run this for logged-in users who can edit other's posts (Admins and OAs)
+    if (!is_user_logged_in() || !current_user_can('edit_others_posts')) {
+        return;
+    }
+
+    // Check for pending tasks (this logic is the same as in our admin-ui.php file)
+    $product_counts = wp_count_posts('product');
+    $pending_products_count = isset($product_counts->draft) ? $product_counts->draft : 0;
+    $user_query = new WP_User_Query(['meta_key' => '_account_status', 'meta_value' => 'pending']);
+    $pending_users_count = $user_query->get_total();
+    $total_pending = $pending_products_count + $pending_users_count;
+
+    // If there are no pending tasks, do nothing.
+    if ($total_pending == 0) {
+        return;
+    }
+    
+    // If there ARE pending tasks, load our script and its data
+    wp_enqueue_script(
+        'taptosell-logout-warning', 
+        TAPTOSELL_CORE_URL . 'assets/js/logout-warning.js', 
+        ['jquery'], 
+        '1.2', // Version bumped
+        true
+    );
+
+    $current_user = wp_get_current_user();
+    $user_role = !empty($current_user->roles) ? $current_user->roles[0] : '';
+    
+    wp_localize_script(
+        'taptosell-logout-warning',
+        'taptosellLogoutData',
+        [
+            'pendingTasks' => $total_pending,
+            'currentUserRole' => $user_role,
+        ]
+    );
+}
+add_action('wp_enqueue_scripts', 'taptosell_enqueue_frontend_logout_warning');

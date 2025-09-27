@@ -57,7 +57,7 @@ function taptosell_add_login_logout_links( $items, $args ) {
         if ( is_user_logged_in() ) {
             // User is logged in: Add a "Logout" link
             $logout_url = wp_logout_url( home_url( '/' ) ); // Redirect to homepage on logout
-            $items .= '<li class="menu-item tts-logout-link"><a href="' . esc_url( $logout_url ) . '">Logout</a></li>';
+            $items .= '<li class="menu-item tts-logout-link"><a href="' . esc_url( $logout_url ) . '" class="tts-logout-button">Logout</a></li>';
         
         } else {
             // User is logged out: Add our "Login" modal trigger

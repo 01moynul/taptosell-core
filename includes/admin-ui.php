@@ -164,11 +164,13 @@ function taptosell_pending_tasks_widget_display() {
     echo '</ul>';
 }
 
+// In: includes/admin-ui.php
+
 /**
  * Enqueues a script to warn admins if they log out with pending tasks.
  */
 function taptosell_enqueue_logout_warning_script() {
-    // Only run this for Admins and Operational Admins.
+    // Only run this for users who can edit other's posts (Admins and OAs)
     if (!current_user_can('edit_others_posts')) {
         return;
     }
@@ -180,15 +182,30 @@ function taptosell_enqueue_logout_warning_script() {
     // Get pending user count
     $user_query = new WP_User_Query(['meta_key' => '_account_status', 'meta_value' => 'pending']);
     $pending_users_count = $user_query->get_total();
+    
+    $total_pending = $pending_products_count + $pending_users_count;
 
     // If there are no pending tasks, do nothing.
-    if ($pending_products_count == 0 && $pending_users_count == 0) {
+    if ($total_pending == 0) {
         return;
     }
     
     // If there ARE pending tasks, load our script.
     $script_url = plugin_dir_url( dirname( __FILE__ ) ) . 'assets/js/logout-warning.js';
-    wp_enqueue_script('taptosell-logout-warning', $script_url, ['jquery'], '1.0', true);
+    wp_enqueue_script('taptosell-logout-warning', $script_url, ['jquery'], '1.1', true); // Version bumped
+
+    // --- NEW: Pass data from PHP to our JavaScript file ---
+    $current_user = wp_get_current_user();
+    $user_role = !empty($current_user->roles) ? $current_user->roles[0] : '';
+    
+    wp_localize_script(
+        'taptosell-logout-warning',
+        'taptosellLogoutData', // This is the name of our JavaScript object
+        [
+            'pendingTasks' => $total_pending,
+            'currentUserRole' => $user_role,
+        ]
+    );
 }
 add_action('admin_enqueue_scripts', 'taptosell_enqueue_logout_warning_script');
 
