@@ -6,16 +6,34 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Helper function to get a user's current wallet balance.
+ * This version uses the WP Object Cache to improve performance and prevent stale data.
  */
 function taptosell_get_user_wallet_balance($user_id) {
-    global $wpdb;
-    $table_name = $wpdb->prefix . 'taptosell_wallet_transactions';
-    $balance = $wpdb->get_var($wpdb->prepare("SELECT SUM(amount) FROM $table_name WHERE user_id = %d", $user_id));
+    // Create a unique cache key for this specific user's balance.
+    $cache_key = 'taptosell_balance_' . $user_id;
+    
+    // First, try to get the balance from WordPress's cache.
+    $balance = wp_cache_get($cache_key, 'taptosell_wallet');
+
+    // If the balance was not found in the cache, the result will be 'false'.
+    if (false === $balance) {
+        // Since it wasn't in the cache, run the database query to get the fresh value.
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'taptosell_wallet_transactions';
+        $balance = $wpdb->get_var($wpdb->prepare("SELECT SUM(amount) FROM $table_name WHERE user_id = %d", $user_id));
+        
+        // Now, save this fresh result back to the cache for future page loads.
+        wp_cache_set($cache_key, $balance, 'taptosell_wallet');
+    }
+    
+    // Return the balance (either from the cache or the fresh one from the database).
     return (float) $balance;
 }
 
+// In: includes/wallet-functions.php
+
 /**
- * Helper function to add a new transaction to the wallet table.
+ * Helper function to add a new transaction and clear the user's balance cache.
  */
 function taptosell_add_wallet_transaction($user_id, $amount, $type, $details) {
     global $wpdb;
@@ -25,6 +43,11 @@ function taptosell_add_wallet_transaction($user_id, $amount, $type, $details) {
         ['user_id' => $user_id, 'amount' => $amount, 'type' => $type, 'details' => $details, 'transaction_date' => current_time('mysql')],
         ['%d', '%f', '%s', '%s', '%s']
     );
+
+    // --- THIS IS THE IMPORTANT NEW LINE ---
+    // After we add a new transaction, we MUST delete the old cached balance.
+    $cache_key = 'taptosell_balance_' . $user_id;
+    wp_cache_delete($cache_key, 'taptosell_wallet');
 }
 
 /**
@@ -250,3 +273,26 @@ function taptosell_handle_withdrawal_request() {
     exit;
 }
 add_action('init', 'taptosell_handle_withdrawal_request');
+
+/**
+ * --- NEW: Prevents caching on the "My Wallet" page. ---
+ * This is a more forceful way to ensure the balance is always fresh on servers
+ * with aggressive page caching. It should be used in addition to the wp_cache_* functions.
+ */
+function taptosell_prevent_wallet_page_caching() {
+    // Check if we are on a singular page (not an archive, etc.)
+    if ( is_page() ) {
+        // Get the current page object
+        $page_obj = get_queried_object();
+        // Check if the page title is "My Wallet"
+        if ( isset($page_obj->post_title) && $page_obj->post_title === 'My Wallet' ) {
+            // This constant is a standard way to tell many caching plugins and hosts not to cache the current page.
+            if ( ! defined('DONOTCACHEPAGE') ) {
+                define('DONOTCACHEPAGE', true);
+            }
+        }
+    }
+}
+add_action( 'template_redirect', 'taptosell_prevent_wallet_page_caching' );
+
+?>
