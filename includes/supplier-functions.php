@@ -36,53 +36,164 @@ add_action( 'template_redirect', 'taptosell_supplier_dashboard_access' );
  * This function now handles both simple and variable products, including all new fields.
  */
 function taptosell_handle_product_upload() {
-    // Check if either of our form buttons were clicked.
-    if (!isset($_POST['taptosell_new_product_submit']) && !isset($_POST['save_as_draft'])) {
-        return;
+    // This handler should ONLY trigger for NEW products. 
+    // We check that the form was submitted AND that a product_id is NOT set.
+    if ( (isset($_POST['taptosell_new_product_submit']) || isset($_POST['save_as_draft'])) && !isset($_POST['product_id']) ) {
+
+        // Security and permission checks.
+        if (!current_user_can('edit_posts')) { return; }
+        if (!isset($_POST['taptosell_product_nonce']) || !wp_verify_nonce($_POST['taptosell_product_nonce'], 'taptosell_add_product')) {
+            wp_die('Security check failed!');
+        }
+
+        // --- Determine the product's status based on which button was clicked ---
+        $product_status = (isset($_POST['save_as_draft'])) ? 'draft' : 'pending';
+        
+        // --- Sanitize all form input data ---
+        $product_title       = isset($_POST['product_title']) ? sanitize_text_field($_POST['product_title']) : '';
+        $product_description = isset($_POST['product_description']) ? wp_kses_post($_POST['product_description']) : '';
+        $product_category    = isset($_POST['product_category']) ? (int)$_POST['product_category'] : 0;
+        $product_video       = isset($_POST['product_video']) ? esc_url_raw($_POST['product_video']) : '';
+        $product_weight      = isset($_POST['product_weight']) ? (float)$_POST['product_weight'] : 0;
+        $product_length      = isset($_POST['product_length']) ? (float)$_POST['product_length'] : 0;
+        $product_width       = isset($_POST['product_width']) ? (float)$_POST['product_width'] : 0;
+        $product_height      = isset($_POST['product_height']) ? (float)$_POST['product_height'] : 0;
+        
+        if (empty($product_title)) { return; } // Title is the absolute minimum requirement
+
+        // --- Create the main product post ---
+        $product_id = wp_insert_post([
+            'post_title'   => $product_title,
+            'post_content' => $product_description,
+            'post_status'  => $product_status,
+            'post_type'    => 'product',
+            'post_author'  => get_current_user_id(),
+        ]);
+
+        if ($product_id && !is_wp_error($product_id)) {
+            // --- Save common product data (meta fields) ---
+            if ($product_category > 0) { wp_set_post_terms($product_id, [$product_category], 'product_category'); }
+            update_post_meta($product_id, '_video_url', $product_video);
+            update_post_meta($product_id, '_weight', $product_weight);
+            update_post_meta($product_id, '_length', $product_length);
+            update_post_meta($product_id, '_width', $product_width);
+            update_post_meta($product_id, '_height', $product_height);
+
+            // --- Handle Image Upload ---
+            if (!empty($_FILES['product_image']['name'])) {
+                require_once(ABSPATH . 'wp-admin/includes/image.php');
+                require_once(ABSPATH . 'wp-admin/includes/file.php');
+                require_once(ABSPATH . 'wp-admin/includes/media.php');
+                $attachment_id = media_handle_upload('product_image', $product_id);
+                if (!is_wp_error($attachment_id)) { set_post_thumbnail($product_id, $attachment_id); }
+            }
+
+            // --- Check for variations or simple product data ---
+            if (isset($_POST['enable_variations'])) {
+                // This is a VARIABLE product
+                wp_set_object_terms($product_id, 'variable', 'product_type');
+                $sanitized_attributes = [];
+                if (isset($_POST['variation']) && is_array($_POST['variation'])) {
+                    foreach ($_POST['variation'] as $group_data) {
+                        $sanitized_options = [];
+                        if (isset($group_data['options']) && is_array($group_data['options'])) {
+                            foreach ($group_data['options'] as $option) { $sanitized_options[] = sanitize_text_field($option); }
+                        }
+                        $sanitized_attributes[] = ['name' => isset($group_data['name']) ? sanitize_text_field($group_data['name']) : '', 'options' => $sanitized_options];
+                    }
+                }
+                update_post_meta($product_id, '_variation_attributes', $sanitized_attributes);
+                $sanitized_variations = [];
+                if (isset($_POST['variants']) && is_array($_POST['variants'])) {
+                    foreach ($_POST['variants'] as $variant) {
+                        if (!empty($variant['name'])) {
+                             $sanitized_variations[] = [
+                                'name'  => sanitize_text_field($variant['name']),
+                                'price' => isset($variant['price']) ? sanitize_text_field($variant['price']) : '',
+                                'stock' => isset($variant['stock']) ? sanitize_text_field($variant['stock']) : '',
+                                'sku'   => isset($variant['sku']) ? sanitize_text_field($variant['sku']) : '',
+                            ];
+                        }
+                    }
+                }
+                update_post_meta($product_id, '_variations', $sanitized_variations);
+
+            } else {
+                // This is a SIMPLE product
+                wp_set_object_terms($product_id, 'simple', 'product_type');
+                update_post_meta($product_id, '_price', isset($_POST['product_price']) ? sanitize_text_field($_POST['product_price']) : '');
+                update_post_meta($product_id, '_sku', isset($_POST['product_sku']) ? sanitize_text_field($_POST['product_sku']) : '');
+                update_post_meta($product_id, '_stock_quantity', isset($_POST['product_stock']) ? (int)$_POST['product_stock'] : 0);
+            }
+
+            // --- Send notification to admins if submitted for review ---
+            if ($product_status === 'pending') {
+                $op_admins = get_users(['role' => 'operational_admin', 'fields' => 'ID']);
+                if (!empty($op_admins)) {
+                    $message = 'New product "' . esc_html($product_title) . '" has been submitted for approval.';
+                    $link = admin_url('post.php?post=' . $product_id . '&action=edit');
+                    foreach ($op_admins as $admin_id) { taptosell_add_notification($admin_id, $message, $link); }
+                }
+            }
+            
+            // --- Redirect user after submission ---
+            $dashboard_page = get_page_by_title('Supplier Dashboard');
+            if ($dashboard_page) {
+                $message_type = ($product_status === 'draft') ? 'draft_saved' : 'product_submitted';
+                $redirect_url = add_query_arg('message', $message_type, get_permalink($dashboard_page->ID));
+                wp_redirect($redirect_url);
+                exit;
+            }
+        }
     }
+}
+add_action('init', 'taptosell_handle_product_upload', 20);
 
-    // Security and permission checks.
-    if (!current_user_can('edit_posts')) { return; }
-    if (!isset($_POST['taptosell_product_nonce']) || !wp_verify_nonce($_POST['taptosell_product_nonce'], 'taptosell_add_product')) {
-        wp_die('Security check failed!');
-    }
+/**
+ * --- FINAL (Phase 10): Handler for the UPDATE product form ---
+ * This function now handles updating both simple and variable products,
+ * including "Save as Draft" functionality.
+ */
+function taptosell_handle_product_update() {
+    // This handler triggers for both "Update Product" and "Save Draft" on the EDIT form,
+    // identified by the presence of a 'product_id'.
+    if ( (isset($_POST['taptosell_update_product_submit']) || isset($_POST['save_as_draft'])) && isset($_POST['product_id']) ) {
 
-    // --- Determine the product's status based on which button was clicked ---
-    $product_status = '';
-    $is_draft_submission = false;
-    if (isset($_POST['save_as_draft'])) {
-        $product_status = 'draft';
-        $is_draft_submission = true;
-    } elseif (isset($_POST['taptosell_new_product_submit'])) {
-        $product_status = 'pending';
-    }
+        // Security and permission checks
+        if ( ! current_user_can('edit_posts') ) { return; }
+        if ( ! isset( $_POST['taptosell_product_edit_nonce'] ) || ! wp_verify_nonce( $_POST['taptosell_product_edit_nonce'], 'taptosell_edit_product' ) ) {
+            wp_die('Security check failed!');
+        }
 
-    // --- Sanitize all form input data (handle potentially empty values for drafts) ---
-    $product_title       = isset($_POST['product_title']) ? sanitize_text_field($_POST['product_title']) : '';
-    $product_description = isset($_POST['product_description']) ? wp_kses_post($_POST['product_description']) : '';
-    $product_category    = isset($_POST['product_category']) ? (int)$_POST['product_category'] : 0;
-    $product_video       = isset($_POST['product_video']) ? esc_url_raw($_POST['product_video']) : '';
-    $product_weight      = isset($_POST['product_weight']) ? (float)$_POST['product_weight'] : 0;
-    $product_length      = isset($_POST['product_length']) ? (float)$_POST['product_length'] : 0;
-    $product_width       = isset($_POST['product_width']) ? (float)$_POST['product_width'] : 0;
-    $product_height      = isset($_POST['product_height']) ? (float)$_POST['product_height'] : 0;
-    
-    // The product title is the absolute minimum requirement to create a post.
-    if (empty($product_title)) { 
-        // We can add an error message here in the future if needed.
-        return; 
-    }
+        $product_id = (int)$_POST['product_id'];
+        $product_author_id = get_post_field('post_author', $product_id);
 
-    // --- Create the main product post ---
-    $product_id = wp_insert_post([
-        'post_title'   => $product_title,
-        'post_content' => $product_description,
-        'post_status'  => $product_status,
-        'post_type'    => 'product',
-        'post_author'  => get_current_user_id(),
-    ]);
+        // Ensure the current user owns this product
+        if ( get_current_user_id() != $product_author_id && !current_user_can('manage_options') ) {
+            wp_die('You do not have permission to edit this product.');
+        }
 
-    if ($product_id && !is_wp_error($product_id)) {
+        // --- Determine the new status based on which button was clicked ---
+        $new_status = (isset($_POST['save_as_draft'])) ? 'draft' : 'pending'; // Re-submit for review
+
+        // --- Sanitize all form input data ---
+        $product_title       = sanitize_text_field($_POST['product_title']);
+        $product_description = wp_kses_post($_POST['product_description']);
+        $product_category    = isset($_POST['product_category']) ? (int)$_POST['product_category'] : 0;
+        $product_video       = isset($_POST['product_video']) ? esc_url_raw($_POST['product_video']) : '';
+        $product_weight      = isset($_POST['product_weight']) ? (float)$_POST['product_weight'] : 0;
+        $product_length      = isset($_POST['product_length']) ? (float)$_POST['product_length'] : 0;
+        $product_width       = isset($_POST['product_width']) ? (float)$_POST['product_width'] : 0;
+        $product_height      = isset($_POST['product_height']) ? (float)$_POST['product_height'] : 0;
+
+        // --- Update the main post data ---
+        wp_update_post([
+            'ID'           => $product_id,
+            'post_title'   => $product_title,
+            'post_content' => $product_description,
+            'post_status'  => $new_status,
+        ]);
+
         // --- Save common product data (meta fields) ---
         if ($product_category > 0) { wp_set_post_terms($product_id, [$product_category], 'product_category'); }
         update_post_meta($product_id, '_video_url', $product_video);
@@ -91,7 +202,7 @@ function taptosell_handle_product_upload() {
         update_post_meta($product_id, '_width', $product_width);
         update_post_meta($product_id, '_height', $product_height);
 
-        // --- Handle Image Upload ---
+        // --- Handle Image Upload (if a new one was provided) ---
         if (!empty($_FILES['product_image']['name'])) {
             require_once(ABSPATH . 'wp-admin/includes/image.php');
             require_once(ABSPATH . 'wp-admin/includes/file.php');
@@ -100,11 +211,46 @@ function taptosell_handle_product_upload() {
             if (!is_wp_error($attachment_id)) { set_post_thumbnail($product_id, $attachment_id); }
         }
 
-        // --- Check if variations were submitted ---
-        if (isset($_POST['variants']) && is_array($_POST['variants'])) {
+        // --- Check for variations or simple product data ---
+        if (isset($_POST['enable_variations'])) {
+            // This is a VARIABLE product
             wp_set_object_terms($product_id, 'variable', 'product_type');
-            update_post_meta($product_id, '_variations', $_POST['variants']);
-            update_post_meta($product_id, '_variation_attributes', $_POST['variation']);
+
+            // 1. Sanitize and save the variation attributes (e.g., Color: Red, Blue)
+            $sanitized_attributes = [];
+            if (isset($_POST['variation']) && is_array($_POST['variation'])) {
+                foreach ($_POST['variation'] as $group_data) {
+                    $sanitized_options = [];
+                    if (isset($group_data['options']) && is_array($group_data['options'])) {
+                        foreach ($group_data['options'] as $option) {
+                            $sanitized_options[] = sanitize_text_field($option);
+                        }
+                    }
+                    $sanitized_attributes[] = [
+                        'name'    => isset($group_data['name']) ? sanitize_text_field($group_data['name']) : '',
+                        'options' => $sanitized_options,
+                    ];
+                }
+            }
+            update_post_meta($product_id, '_variation_attributes', $sanitized_attributes);
+
+            // 2. Sanitize and save the variation data (price, stock, SKU)
+            $sanitized_variations = [];
+            if (isset($_POST['variants']) && is_array($_POST['variants'])) {
+                foreach ($_POST['variants'] as $variant) {
+                    // Only save the variant if it has a name to keep data clean
+                    if (!empty($variant['name'])) {
+                        $sanitized_variations[] = [
+                            'name'  => sanitize_text_field($variant['name']),
+                            'price' => isset($variant['price']) ? sanitize_text_field($variant['price']) : '',
+                            'stock' => isset($variant['stock']) ? sanitize_text_field($variant['stock']) : '',
+                            'sku'   => isset($variant['sku']) ? sanitize_text_field($variant['sku']) : '',
+                        ];
+                    }
+                }
+            }
+            update_post_meta($product_id, '_variations', $sanitized_variations);
+
         } else {
             // This is a SIMPLE product
             $product_price = isset($_POST['product_price']) ? sanitize_text_field($_POST['product_price']) : '';
@@ -117,84 +263,13 @@ function taptosell_handle_product_upload() {
             update_post_meta($product_id, '_stock_quantity', $product_stock);
         }
 
-        // --- Send notification to admins ONLY if submitted for review ---
-        if ($product_status === 'pending') {
-            $op_admins = get_users(['role' => 'operational_admin', 'fields' => 'ID']);
-            if (!empty($op_admins)) {
-                $message = 'New product "' . esc_html($product_title) . '" has been submitted for approval.';
-                $link = admin_url('post.php?post=' . $product_id . '&action=edit');
-                foreach ($op_admins as $admin_id) {
-                    taptosell_add_notification($admin_id, $message, $link);
-                }
-            }
-        }
-        
         // --- Redirect user after submission ---
         $dashboard_page = get_page_by_title('Supplier Dashboard');
         if ($dashboard_page) {
-            $message_type = ($is_draft_submission) ? 'draft_saved' : 'product_submitted';
+            $message_type = ($new_status === 'draft') ? 'draft_saved' : 'product_updated';
             $redirect_url = add_query_arg('message', $message_type, get_permalink($dashboard_page->ID));
             wp_redirect($redirect_url);
             exit;
-        }
-    }
-}
-add_action('init', 'taptosell_handle_product_upload', 20);
-
-// --- UPDATED (Post-Approval Edit FINAL FIX): Handler for the UPDATE product form ---
-function taptosell_handle_product_update() {
-    if ( isset( $_POST['taptosell_update_product_submit'] ) && current_user_can('edit_posts') ) {
-        if ( ! isset( $_POST['taptosell_product_edit_nonce'] ) || ! wp_verify_nonce( $_POST['taptosell_product_edit_nonce'], 'taptosell_edit_product' ) ) { wp_die('Security check failed!'); }
-
-        $product_id = (int)$_POST['product_id'];
-        $product_author_id = get_post_field('post_author', $product_id);
-
-        if ( get_current_user_id() != $product_author_id && !current_user_can('manage_options') ) { wp_die('You do not have permission to edit this product.'); }
-
-        // --- NEW: Get the product's current status BEFORE making changes ---
-        $product_status = get_post_status($product_id);
-        $is_approved = ($product_status === 'publish');
-
-        // --- ALWAYS update the stock quantity, as it's always editable ---
-        $stock_quantity = isset($_POST['product_stock']) ? (int)$_POST['product_stock'] : 0;
-        update_post_meta($product_id, '_stock_quantity', $stock_quantity);
-
-        // --- ONLY update the other fields if the product is NOT approved ---
-        if (!$is_approved) {
-            $product_title = sanitize_text_field($_POST['product_title']);
-            $product_price = sanitize_text_field($_POST['product_price']);
-            $product_sku = sanitize_text_field($_POST['product_sku']);
-            $product_category = isset($_POST['product_category']) ? (int)$_POST['product_category'] : 0;
-            $product_brands = sanitize_text_field($_POST['product_brands']);
-            $product_description = isset($_POST['product_description']) ? wp_kses_post($_POST['product_description']) : '';
-            $product_weight = isset($_POST['product_weight']) ? (float)$_POST['product_weight'] : 0;
-            $product_length = isset($_POST['product_length']) ? (float)$_POST['product_length'] : 0;
-            $product_width = isset($_POST['product_width']) ? (float)$_POST['product_width'] : 0;
-            $product_height = isset($_POST['product_height']) ? (float)$_POST['product_height'] : 0;
-            $product_video = isset($_POST['product_video']) ? esc_url_raw($_POST['product_video']) : '';
-
-            wp_update_post([
-                'ID' => $product_id,
-                'post_title' => $product_title,
-                'post_content' => $product_description,
-            ]);
-            update_post_meta($product_id, '_price', $product_price);
-            update_post_meta($product_id, '_sku', $product_sku);
-            update_post_meta($product_id, '_weight', $product_weight);
-            update_post_meta($product_id, '_length', $product_length);
-            update_post_meta($product_id, '_width', $product_width);
-            update_post_meta($product_id, '_height', $product_height);
-            update_post_meta($product_id, '_video_url', $product_video);
-
-            if ($product_category > 0) { wp_set_post_terms($product_id, [$product_category], 'product_category'); }
-            if (!empty($product_brands)) { wp_set_post_terms($product_id, $product_brands, 'brand', false); } else { wp_set_post_terms($product_id, '', 'brand'); }
-        }
-
-        // Redirect back to the supplier dashboard
-        $dashboard_page = get_page_by_title('Supplier Dashboard');
-        if ($dashboard_page) {
-            $redirect_url = add_query_arg('product_updated', 'true', get_permalink($dashboard_page->ID));
-            wp_redirect($redirect_url); exit;
         }
     }
 }
@@ -280,7 +355,7 @@ function taptosell_add_new_product_form_shortcode() {
 
                     <div class="form-row">
                         <label class="switch-toggle">
-                            <input type="checkbox" id="enable-variations-toggle">
+                            <input type="checkbox" id="enable-variations-toggle" name="enable_variations">
                             <span class="slider round"></span>
                             <strong><?php _e('Enable Product Variations', 'taptosell-core'); ?></strong>
                         </label>
@@ -625,7 +700,7 @@ function taptosell_product_edit_form_shortcode() {
                     <hr class="form-divider">
                     <div class="form-row">
                         <label class="switch-toggle">
-                            <input type="checkbox" id="enable-variations-toggle" <?php checked($is_variable); ?>>
+                            <input type="checkbox" id="enable-variations-toggle" name="enable_variations" <?php checked($is_variable); ?>>
                             <span class="slider round"></span>
                             <strong><?php _e('Enable Product Variations', 'taptosell-core'); ?></strong>
                         </label>

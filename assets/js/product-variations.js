@@ -9,36 +9,68 @@ jQuery(document).ready(function($) {
     const tableWrapper = $('#variation-list-table-wrapper');
 
     // =================================================================
-    // 1. TOGGLE VARIATIONS ON/OFF
+    // 1. INITIALIZATION LOGIC (FOR EDIT PAGE)
+    // =================================================================
+    // This is the new block to handle pre-filling the form on the edit page.
+    function initializeEditForm() {
+        // Check if the taptosell_edit_data object exists (it's passed from PHP).
+        if (typeof taptosell_edit_data !== 'undefined' && taptosell_edit_data.attributes.length > 0) {
+            
+            // A) Pre-fill the variation groups and options (e.g., "Color": "Red", "Blue")
+            taptosell_edit_data.attributes.forEach((group, index) => {
+                let groupIndex = index + 1;
+                let groupHTML = `
+                    <div class="variation-group">
+                        <div class="variation-header">
+                            <input type="text" name="variation[${groupIndex}][name]" class="variation-name-input" value="${group.name}">
+                            <button type="button" class="remove-variation-group" title="Remove Variation">&times;</button>
+                        </div>
+                        <div class="variation-options">
+                            <input type="text" class="variation-option-input" placeholder="Add another option...">
+                        </div>
+                    </div>`;
+                groupsWrapper.append(groupHTML);
+
+                let currentGroup = groupsWrapper.find('.variation-group').last();
+                let optionsContainer = currentGroup.find('.variation-options');
+
+                group.options.forEach(optionValue => {
+                    let tagHTML = `<span class="variation-option-tag">${optionValue}<span class="remove-option">&times;</span></span>`;
+                    let hiddenInputHTML = `<input type="hidden" name="variation[${groupIndex}][options][]" value="${optionValue}">`;
+                    currentGroup.find('.variation-option-input').before(tagHTML);
+                    optionsContainer.append(hiddenInputHTML);
+                });
+            });
+
+            // B) Regenerate the pricing table with the saved values
+            generateVariationTable(taptosell_edit_data.variations);
+        }
+    }
+
+    // =================================================================
+    // 2. TOGGLE VARIATIONS ON/OFF
     // =================================================================
     toggle.on('change', function() {
         if ($(this).is(':checked')) {
-            // Variations are ENABLED
             variationsContainer.slideDown();
             simpleFieldsContainer.slideUp();
-            // Make simple fields non-required when variations are active
             simpleFieldsContainer.find('input').prop('required', false);
         } else {
-            // Variations are DISABLED
             variationsContainer.slideUp();
             simpleFieldsContainer.slideDown();
-            // Make simple fields required again when variations are disabled
             simpleFieldsContainer.find('input').prop('required', true);
         }
     });
 
     // =================================================================
-    // 2. ADD / REMOVE VARIATION GROUPS (e.g., Color, Size)
+    // 3. ADD / REMOVE VARIATION GROUPS (e.g., Color, Size)
     // =================================================================
-
-    // --- Add a new variation group ---
     addGroupButton.on('click', function() {
         let groupCount = groupsWrapper.find('.variation-group').length;
         if (groupCount >= 2) {
             alert('You can add a maximum of 2 variation types.');
             return;
         }
-
         let newIndex = groupCount + 1;
         let newGroupHTML = `
             <div class="variation-group">
@@ -50,21 +82,17 @@ jQuery(document).ready(function($) {
                     <input type="text" class="variation-option-input" placeholder="e.g., Small (Press Enter to add)">
                 </div>
             </div>`;
-        
         groupsWrapper.append(newGroupHTML);
     });
 
-    // --- Remove a variation group (using event delegation) ---
     groupsWrapper.on('click', '.remove-variation-group', function() {
         $(this).closest('.variation-group').remove();
-        generateVariationTable(); // Regenerate the table after removing a group
+        generateVariationTable();
     });
 
     // =================================================================
-    // 3. ADD / REMOVE VARIATION OPTIONS (e.g., Red, Blue)
+    // 4. ADD / REMOVE VARIATION OPTIONS (e.g., Red, Blue)
     // =================================================================
-
-    // --- Add a new option tag when user presses Enter ---
     groupsWrapper.on('keydown', '.variation-option-input', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -72,65 +100,45 @@ jQuery(document).ready(function($) {
             if (inputValue) {
                 let optionsContainer = $(this).closest('.variation-options');
                 let groupIndex = optionsContainer.closest('.variation-group').index() + 1;
-
-                // Create the visible tag
-                let tagHTML = `
-                    <span class="variation-option-tag">
-                        ${inputValue}
-                        <span class="remove-option">&times;</span>
-                    </span>`;
-                
-                // Create the hidden input to submit the data
+                let tagHTML = `<span class="variation-option-tag">${inputValue}<span class="remove-option">&times;</span></span>`;
                 let hiddenInputHTML = `<input type="hidden" name="variation[${groupIndex}][options][]" value="${inputValue}">`;
-
                 $(this).before(tagHTML);
                 optionsContainer.append(hiddenInputHTML);
-                $(this).val(''); // Clear the input
-                generateVariationTable(); // Regenerate the table with the new option
+                $(this).val('');
+                generateVariationTable();
             }
         }
     });
 
-    // --- Remove an option tag ---
     groupsWrapper.on('click', '.remove-option', function() {
         let optionText = $(this).parent().text().replace('×', '').trim();
         let optionsContainer = $(this).closest('.variation-options');
-        
-        // Remove the hidden input that corresponds to this tag
         optionsContainer.find(`input[type="hidden"][value="${optionText}"]`).remove();
-        
-        // Remove the visible tag
         $(this).parent().remove();
-        
-        generateVariationTable(); // Regenerate table after removing option
+        generateVariationTable();
     });
 
     // =================================================================
-    // 4. DYNAMICALLY GENERATE THE VARIATION PRICE/STOCK TABLE
+    // 5. DYNAMICALLY GENERATE THE VARIATION PRICE/STOCK TABLE
     // =================================================================
-    function generateVariationTable() {
+    function generateVariationTable(savedVariations = []) {
         let variationGroupsData = [];
-        
-        // Step 1: Collect all variation data from the form
         groupsWrapper.find('.variation-group').each(function() {
             let groupName = $(this).find('.variation-name-input').val().trim();
             let options = [];
             $(this).find('input[type="hidden"]').each(function() {
                 options.push($(this).val());
             });
-
             if (groupName && options.length > 0) {
                 variationGroupsData.push({ name: groupName, options: options });
             }
         });
 
-        // If there's no valid data, clear the table and exit
         if (variationGroupsData.length === 0) {
             tableWrapper.html('');
             return;
         }
 
-        // Step 2: Calculate all possible combinations (Cartesian product)
         let combinations = variationGroupsData.reduce((acc, curr) => {
             let result = [];
             acc.forEach(a => {
@@ -139,52 +147,50 @@ jQuery(document).ready(function($) {
                 });
             });
             return result;
-        }, [[]]);
+        }, [
+            []
+        ]);
 
-        // Step 3: Build the HTML for the table
         let tableHTML = '<table class="wp-list-table widefat fixed striped"><thead><tr>';
-        
-        // Create table headers from variation group names
         variationGroupsData.forEach(group => {
             tableHTML += `<th>${group.name}</th>`;
         });
         tableHTML += '<th>Price (RM)</th><th>Stock</th><th>SKU</th></tr></thead><tbody>';
 
-        // Create a row for each combination
         combinations.forEach((combo, index) => {
-            // Remove the first empty element from the reduce function
-            let validCombo = combo.slice(1); 
+            let validCombo = combo.slice(1);
             if (validCombo.length === 0) return;
+
+            let comboName = validCombo.join(',');
+            // Find saved data for this specific combination
+            let savedData = savedVariations.find(v => v.name === comboName) || {};
+            let price = savedData.price || '';
+            let stock = savedData.stock || '';
+            let sku = savedData.sku || '';
 
             tableHTML += '<tr>';
             validCombo.forEach(option => {
                 tableHTML += `<td>${option}</td>`;
             });
-            
-            // Add input fields for price, stock, and SKU
-            tableHTML += `<td><input type="number" step="0.01" name="variants[${index}][price]" placeholder="Price" required></td>`;
-            tableHTML += `<td><input type="number" step="1" name="variants[${index}][stock]" placeholder="Stock" required></td>`;
-            tableHTML += `<td><input type="text" name="variants[${index}][sku]" placeholder="SKU"></td>`;
-
-            // This hidden field stores the variant combination, e.g., "Red,Small"
-            tableHTML += `<input type="hidden" name="variants[${index}][name]" value="${validCombo.join(',')}">`;
-            
+            tableHTML += `<td><input type="number" step="0.01" name="variants[${index}][price]" value="${price}" placeholder="Price" required></td>`;
+            tableHTML += `<td><input type="number" step="1" name="variants[${index}][stock]" value="${stock}" placeholder="Stock" required></td>`;
+            tableHTML += `<td><input type="text" name="variants[${index}][sku]" value="${sku}" placeholder="SKU"></td>`;
+            tableHTML += `<input type="hidden" name="variants[${index}][name]" value="${comboName}">`;
             tableHTML += '</tr>';
         });
 
         tableHTML += '</tbody></table>';
-
-        // Step 4: Display the generated table
         tableWrapper.html(tableHTML);
     }
-});
 
-// =================================================================
-    // 5. HANDLE "SAVE AS DRAFT" SUBMISSION
+    // =================================================================
+    // 6. HANDLE "SAVE AS DRAFT" SUBMISSION
     // =================================================================
     $('button[name="save_as_draft"]').on('click', function() {
-        // When the draft button is clicked, temporarily remove the 'required'
-        // attribute from all inputs in the form. This allows the form to
-        // be submitted even if some fields are empty.
-        $('#new-product-form').find('input, select, textarea').prop('required', false);
+        // This now targets both the new product form AND the edit product form.
+        $('#new-product-form, #edit-product-form').find('input, select, textarea').prop('required', false);
     });
+
+    // --- KICK IT OFF ---
+    initializeEditForm(); // Run the initialization function when the script loads.
+});
