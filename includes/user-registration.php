@@ -83,33 +83,45 @@ function taptosell_handle_registration_form() {
 // The add_action line remains the same
 add_action('init', 'taptosell_handle_registration_form');
 
+/**
+ * --- CORRECTED: Shortcode to display the registration form. ---
+ * This version uses the correct input names to match our new handler function.
+ */
 function taptosell_registration_form_shortcode() {
     ob_start();
     ?>
     <form action="" method="post" class="taptosell-form">
-        <?php wp_nonce_field( 'taptosell_nonce_action', 'taptosell_nonce_field' ); ?>
+        
+        <?php // CORRECTED: The nonce name now matches the handler. ?>
+        <?php wp_nonce_field( 'taptosell_register', 'taptosell_register_nonce' ); ?>
+        
         <p>
-            <label for="taptosell-username">Username</label>
-            <input type="text" name="taptosell_username" id="taptosell-username" required>
+            <label for="username">Username</label>
+            <?php // CORRECTED: The input name is now 'username'. ?>
+            <input type="text" name="username" id="username" required>
         </p>
         <p>
-            <label for="taptosell-email">Email</label>
-            <input type="email" name="taptosell_email" id="taptosell-email" required>
+            <label for="email">Email</label>
+            <?php // CORRECTED: The input name is now 'email'. ?>
+            <input type="email" name="email" id="email" required>
         </p>
         <p>
-            <label for="taptosell-password">Password</label>
-            <input type="password" name="taptosell_password" id="taptosell-password" required>
+            <label for="password">Password</label>
+            <?php // CORRECTED: The input name is now 'password'. ?>
+            <input type="password" name="password" id="password" required>
         </p>
         <p>
-            <label for="taptosell-role">I am a...</label>
-            <select name="taptosell_role" id="taptosell-role" required>
+            <label for="role">I am a...</label>
+            <?php // CORRECTED: The input name is now 'role'. ?>
+            <select name="role" id="role" required>
                 <option value="">Select Role</option>
                 <option value="supplier">Supplier</option>
                 <option value="dropshipper">Dropshipper</option>
             </select>
         </p>
         <p>
-            <input type="submit" name="taptosell_register_submit" value="Register">
+            <?php // The submit button no longer needs a 'name' attribute. ?>
+            <input type="submit" value="Register">
         </p>
     </form>
     <?php
