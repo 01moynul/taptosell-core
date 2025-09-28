@@ -31,73 +31,83 @@ function taptosell_supplier_dashboard_access() {
 }
 add_action( 'template_redirect', 'taptosell_supplier_dashboard_access' );
 
-// --- UPDATED (Notifications): Handler for the NEW product form ---
+/**
+ * --- UPDATED (Phase 10): Handler for the NEW product form ---
+ * This function now handles both "Save as Draft" and "Save and Publish" actions.
+ */
 function taptosell_handle_product_upload() {
-    if ( isset( $_POST['taptosell_new_product_submit'] ) && current_user_can('edit_posts') ) {
-        if ( ! isset( $_POST['taptosell_product_nonce'] ) || ! wp_verify_nonce( $_POST['taptosell_product_nonce'], 'taptosell_add_product' ) ) { wp_die('Security check failed!'); }
-        
-        $product_title = sanitize_text_field($_POST['product_title']);
-        $product_price = sanitize_text_field($_POST['product_price']);
-        $product_sku = sanitize_text_field($_POST['product_sku']);
-        $product_stock = isset($_POST['product_stock']) ? (int)$_POST['product_stock'] : 0;
-        $product_category = isset($_POST['product_category']) ? (int)$_POST['product_category'] : 0;
-        $product_brands = sanitize_text_field($_POST['product_brands']);
-        $product_description = isset($_POST['product_description']) ? wp_kses_post($_POST['product_description']) : '';
+    // Check if either of our form buttons were clicked.
+    if ( ! isset( $_POST['taptosell_new_product_submit'] ) && ! isset( $_POST['save_as_draft'] ) ) {
+        return;
+    }
 
-        $product_weight = isset($_POST['product_weight']) ? (float)$_POST['product_weight'] : 0;
-        $product_length = isset($_POST['product_length']) ? (float)$_POST['product_length'] : 0;
-        $product_width = isset($_POST['product_width']) ? (float)$_POST['product_width'] : 0;
-        $product_height = isset($_POST['product_height']) ? (float)$_POST['product_height'] : 0;
-        $product_video = isset($_POST['product_video']) ? esc_url_raw($_POST['product_video']) : '';
+    // Security and permission checks.
+    if ( ! current_user_can('edit_posts') ) { return; }
+    if ( ! isset( $_POST['taptosell_product_nonce'] ) || ! wp_verify_nonce( $_POST['taptosell_product_nonce'], 'taptosell_add_product' ) ) { 
+        wp_die('Security check failed!'); 
+    }
+    
+    // --- Determine the product's status based on which button was clicked ---
+    $product_status = '';
+    if ( isset( $_POST['save_as_draft'] ) ) {
+        $product_status = 'draft'; // If "Save as Draft" was clicked
+    } elseif ( isset( $_POST['taptosell_new_product_submit'] ) ) {
+        $product_status = 'pending'; // If "Save and Publish" was clicked, it goes to pending for review
+    }
 
+    // Sanitize all the form input data.
+    $product_title = sanitize_text_field($_POST['product_title']);
+    $product_description = isset($_POST['product_description']) ? wp_kses_post($_POST['product_description']) : '';
+    $product_category = isset($_POST['product_category']) ? (int)$_POST['product_category'] : 0;
 
-        if ( empty($product_title) || empty($product_price) || empty($product_sku) ) { return; }
+    // --- We will add more fields here as we build the form ---
+    // For now, we'll use placeholder data for required fields like price and SKU.
+    $product_price = '0.00'; 
+    $product_sku = 'temp-' . time();
 
-        $product_id = wp_insert_post([
-            'post_title'   => $product_title,
-            'post_content' => $product_description,
-            'post_status'  => 'draft',
-            'post_type'    => 'product',
-            'post_author'  => get_current_user_id(),
-        ]);
+    // Make sure we have a title before proceeding.
+    if ( empty($product_title) ) { return; }
 
-        if ( $product_id && !is_wp_error($product_id) ) {
-            update_post_meta($product_id, '_price', $product_price);
-            update_post_meta($product_id, '_sku', $product_sku);
-            update_post_meta($product_id, '_stock_quantity', $product_stock);
+    // Create the new product post.
+    $product_id = wp_insert_post([
+        'post_title'   => $product_title,
+        'post_content' => $product_description,
+        'post_status'  => $product_status, // Use the status we determined earlier
+        'post_type'    => 'product',
+        'post_author'  => get_current_user_id(),
+    ]);
 
-            update_post_meta($product_id, '_weight', $product_weight);
-            update_post_meta($product_id, '_length', $product_length);
-            update_post_meta($product_id, '_width', $product_width);
-            update_post_meta($product_id, '_height', $product_height);
-            update_post_meta($product_id, '_video_url', $product_video);
+    if ( $product_id && !is_wp_error($product_id) ) {
+        // Save the meta data (price, SKU, etc.).
+        update_post_meta($product_id, '_price', $product_price);
+        update_post_meta($product_id, '_sku', $product_sku);
 
+        // Set the product category.
+        if ($product_category > 0) { 
+            wp_set_post_terms($product_id, [$product_category], 'product_category'); 
+        }
 
-            if ($product_category > 0) { wp_set_post_terms($product_id, [$product_category], 'product_category'); }
-            if (!empty($product_brands)) { wp_set_post_terms($product_id, $product_brands, 'brand'); }
-            if ( ! empty( $_FILES['product_image']['name'] ) ) {
-                require_once( ABSPATH . 'wp-admin/includes/image.php' );
-                require_once( ABSPATH . 'wp-admin/includes/file.php' );
-                require_once( ABSPATH . 'wp-admin/includes/media.php' );
-                $attachment_id = media_handle_upload('product_image', $product_id);
-                if ( ! is_wp_error($attachment_id) ) { set_post_thumbnail($product_id, $attachment_id); }
-            }
+        // --- Handle file uploads (we will add this logic later) ---
 
-            // --- NEW: Generate a notification for all Operational Admins ---
+        // --- Notification Logic ---
+        // Only send a notification to admins if the product was submitted for review.
+        if ($product_status === 'pending') {
             $op_admins = get_users(['role' => 'operational_admin', 'fields' => 'ID']);
             if (!empty($op_admins)) {
                 $message = 'New product "' . esc_html($product_title) . '" has been submitted for approval.';
-                $link = admin_url('edit.php?post_status=draft&post_type=product');
+                $link = admin_url('post.php?post=' . $product_id . '&action=edit'); // Direct link to edit the product
                 foreach ($op_admins as $admin_id) {
                     taptosell_add_notification($admin_id, $message, $link);
                 }
             }
+        }
 
-            $dashboard_page = get_page_by_title('Supplier Dashboard');
-            if ($dashboard_page) {
-                $redirect_url = add_query_arg('product_submitted', 'true', get_permalink($dashboard_page->ID));
-                wp_redirect($redirect_url); exit;
-            }
+        // Redirect the user back to the dashboard with a success message.
+        $dashboard_page = get_page_by_title('Supplier Dashboard');
+        if ($dashboard_page) {
+            $redirect_url = add_query_arg('message', 'product_submitted', get_permalink($dashboard_page->ID));
+            wp_redirect($redirect_url); 
+            exit;
         }
     }
 }
@@ -162,128 +172,244 @@ function taptosell_handle_product_update() {
 }
 add_action('init', 'taptosell_handle_product_update', 20);
 
-// --- UPDATED (Advanced): Shortcode for the NEW product form ---
-function taptosell_product_upload_form_shortcode() {
-    if ( !is_user_logged_in() || !current_user_can('edit_posts') ) { return '<p>You do not have permission to view this content.</p>'; }
+/**
+ * --- NEW (Phase 10): Shortcode for the NEW "Add a New Product" page. ---
+ * This function builds the UI for the multi-section product submission form.
+ * [taptosell_add_new_product_form]
+ */
+function taptosell_add_new_product_form_shortcode() {
+    // Security check: ensure user is a logged-in supplier.
+    if ( ! is_user_logged_in() || ! in_array( 'supplier', (array) wp_get_current_user()->roles ) ) {
+        return '<div class="taptosell-container"><p class="taptosell-error">' . __( 'You must be logged in as a Supplier to view this page.', 'taptosell-core' ) . '</p></div>';
+    }
+
     ob_start();
-    if (isset($_GET['product_submitted']) && $_GET['product_submitted'] === 'true') { echo '<div style="background-color: #d4edda; color: #155724; padding: 15px; margin-bottom: 20px;">Your product has been submitted for review.</div>'; }
     ?>
-    <h3>Add a New Product</h3>
-    <form id="new-product-form" method="post" action="" enctype="multipart/form-data">
-        <p><label for="product_title">Product Name</label><br /><input type="text" id="product_title" value="" name="product_title" required /></p>
-        
-        <div style="margin-bottom: 20px;">
-            <label for="product_description">Product Description</label><br />
-            <?php
-            wp_editor('', 'product_description', [
-                'textarea_name' => 'product_description',
-                'media_buttons' => false,
-                'textarea_rows' => 10,
-                'teeny'         => true,
-            ]);
-            ?>
-        </div>
+    <div class="taptosell-container taptosell-add-product-form">
+        <form id="new-product-form" method="post" action="" enctype="multipart/form-data">
 
-        <p><label for="product_price">Your Price (RM)</label><br /><input type="number" step="0.01" id="product_price" value="" name="product_price" required /></p>
-        <p><label for="product_sku">SKU</label><br /><input type="text" id="product_sku" value="" name="product_sku" required /></p>
-        <p><label for="product_stock">Stock Quantity</label><br /><input type="number" step="1" id="product_stock" value="" name="product_stock" required /></p>
+            <div class="form-header">
+                <h1><?php _e('Add a New Product', 'taptosell-core'); ?></h1>
+                    <div class="form-actions">
+                        <button type="submit" name="save_as_draft" class="taptosell-button secondary"><?php _e('Save as Draft', 'taptosell-core'); ?></button>
+                        <button type="submit" name="taptosell_new_product_submit" class="taptosell-button primary"><?php _e('Save and Publish', 'taptosell-core'); ?></button>
+                    </div>
+            </div>
 
-        <div style="border: 1px solid #ddd; padding: 15px; margin: 20px 0;">
-            <h4>Shipping & Media</h4>
-            <p>
-                <label for="product_weight">Weight (kg)</label><br />
-                <input type="number" step="0.01" id="product_weight" name="product_weight" placeholder="e.g., 0.5">
-            </p>
-            <p>
-                <label>Package Dimensions (cm)</label><br />
-                <input type="number" step="0.01" name="product_length" placeholder="Length" style="width: 100px;">
-                <input type="number" step="0.01" name="product_width" placeholder="Width" style="width: 100px;">
-                <input type="number" step="0.01" name="product_height" placeholder="Height" style="width: 100px;">
-            </p>
-            <p>
-                <label for="product_video">Product Video URL (Optional)</label><br />
-                <input type="url" id="product_video" name="product_video" placeholder="e.g., https://youtube.com/watch?v=..." style="width: 100%; max-width: 400px;">
-            </p>
-        </div>
+            <div class="taptosell-form-section">
+                <div class="section-header">
+                    <h2><?php _e('1. Basic Information', 'taptosell-core'); ?></h2>
+                </div>
+                <div class="section-content">
+                    <div class="form-row">
+                        <label for="product_title"><?php _e('Product Name', 'taptosell-core'); ?></label>
+                        <input type="text" id="product_title" name="product_title" placeholder="<?php _e('Enter product name', 'taptosell-core'); ?>" required>
+                        <p class="form-hint"><?php _e('A good product name includes brand, model, and key features.', 'taptosell-core'); ?></p>
+                    </div>
 
-        <p><label for="product_category">Category</label><br /><?php wp_dropdown_categories(['taxonomy' => 'product_category', 'name' => 'product_category', 'show_option_none' => 'Select a Category', 'hierarchical' => 1, 'required' => true, 'hide_empty' => 0]); ?></p>
-        <p><label for="product_brands">Brands</label><br /><input type="text" id="product_brands" value="" name="product_brands" /><small>Enter brands separated by commas.</small></p>
-        <p><label for="product_image">Image</label><br /><input type="file" id="product_image" name="product_image" accept="image/*" /></p>
-        <?php wp_nonce_field('taptosell_add_product', 'taptosell_product_nonce'); ?>
-        <p><input type="submit" value="Add Product" name="taptosell_new_product_submit" /></p>
-    </form>
+                    <div class="form-row">
+                        <label for="product_category"><?php _e('Category', 'taptosell-core'); ?></label>
+                        <?php
+                        // Arguments for the category dropdown
+                        wp_dropdown_categories([
+                            'taxonomy'         => 'product_category',
+                            'name'             => 'product_category',
+                            'show_option_none' => __('Select a Category', 'taptosell-core'),
+                            'hierarchical'     => 1,
+                            'required'         => true,
+                            'hide_empty'       => 0,
+                            'class'            => 'taptosell-select'
+                        ]);
+                        ?>
+                    </div>
+
+                    <div class="form-row">
+                        <label for="product_description"><?php _e('Product Description', 'taptosell-core'); ?></label>
+                        <?php
+                        // WordPress rich text editor
+                        wp_editor('', 'product_description', [
+                            'textarea_name' => 'product_description',
+                            'media_buttons' => false,
+                            'textarea_rows' => 10,
+                            'teeny'         => true,
+                        ]);
+                        ?>
+                    </div>
+                </div>
+            </div>
+
+            <?php wp_nonce_field('taptosell_add_product', 'taptosell_product_nonce'); ?>
+        </form>
+    </div>
     <?php
     return ob_get_clean();
 }
-add_shortcode('supplier_product_upload_form', 'taptosell_product_upload_form_shortcode');
+add_shortcode('taptosell_add_new_product_form', 'taptosell_add_new_product_form_shortcode');
 
-
-// --- UPDATED (UI/UX Styling): Shortcode for the supplier's "My Products" list ---
+/**
+ * --- UPDATED (UI/UX Styling): Shortcode for the supplier's "My Products" list ---
+ */
 function taptosell_supplier_my_products_shortcode() {
-    if ( ! is_user_logged_in() ) return '';
-    $user = wp_get_current_user();
-    if ( !in_array('supplier', (array)$user->roles) && !current_user_can('manage_options') ) { return ''; }
-    if (current_user_can('manage_options') && !in_array('supplier', (array)$user->roles)) { return '<h3>Admin View: Supplier Products List</h3>'; }
+    // Ensure the user is logged in and is a supplier.
+    if (!is_user_logged_in() || !in_array('supplier', (array) wp_get_current_user()->roles)) {
+        return '<div class="taptosell-container"><p class="taptosell-error">' . __('You must be logged in as a Supplier to view this page.', 'taptosell-core') . '</p></div>';
+    }
 
+    $current_user_id = get_current_user_id();
     ob_start();
-    echo '<h2>My Product Submissions</h2>';
-    if (isset($_GET['product_updated']) && $_GET['product_updated'] === 'true') { echo '<div style="background-color: #d4edda; color: #155724; padding: 15px; margin-bottom: 20px;">Product updated successfully!</div>'; }
+    ?>
+    <div class="taptosell-container taptosell-supplier-dashboard">
+        
+        <?php
+        // Display any success or error messages from URL parameters
+        if (isset($_GET['product_updated'])) {
+            echo '<div class="taptosell-notice success"><p>' . __('Product updated successfully!', 'taptosell-core') . '</p></div>';
+        }
+        if (isset($_GET['product_submitted'])) {
+            echo '<div class="taptosell-notice success"><p>' . __('Your product has been submitted for review.', 'taptosell-core') . '</p></div>';
+        }
+        if (isset($_GET['product_deleted'])) {
+            echo '<div class="taptosell-notice success"><p>' . __('Product deleted successfully.', 'taptosell-core') . '</p></div>';
+        }
+        ?>
 
-    $args = ['post_type' => 'product', 'author' => get_current_user_id(), 'posts_per_page' => -1, 'post_status' => ['publish', 'draft', 'pending', 'rejected']];
-    $product_query = new WP_Query($args);
-    if ( $product_query->have_posts() ) {
-        // --- UPDATED: Use the standard WordPress table class for better compatibility ---
-        echo '<table class="wp-list-table widefat fixed striped"><thead><tr><th>Image</th><th>Name</th><th>SKU</th><th>Stock</th><th>Category</th><th>Brands</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
-        while ( $product_query->have_posts() ) {
-            $product_query->the_post();
-            $product_id = get_the_ID();
-            $status = get_post_status($product_id);
-            $stock = get_post_meta($product_id, '_stock_quantity', true);
-            $category_terms = get_the_terms($product_id, 'product_category');
-            $brand_terms = get_the_terms($product_id, 'brand');
-            $category_name = (!empty($category_terms)) ? $category_terms[0]->name : '—';
-            $brand_names = [];
-            if (!empty($brand_terms)) { foreach ($brand_terms as $brand) { $brand_names[] = $brand->name; } }
-            echo '<tr>';
-            echo '<td>' . get_the_post_thumbnail($product_id, [60, 60]) . '</td>';
-            echo '<td>' . get_the_title() . '</td>';
-            echo '<td>' . esc_html(get_post_meta($product_id, '_sku', true)) . '</td>';
-            echo '<td>' . (is_numeric($stock) ? esc_html($stock) : 'N/A') . '</td>';
-            echo '<td>' . esc_html($category_name) . '</td>';
-            echo '<td>' . (empty($brand_names) ? '—' : esc_html(implode(', ', $brand_names))) . '</td>';
-            echo '<td>';
-            
-            // --- UPDATED: Use new CSS classes for status badges ---
-            if ($status === 'publish') {
-                echo '<span class="status-badge status-approved">Approved</span>';
-            } elseif ($status === 'rejected') {
-                echo '<span class="status-badge status-rejected">Rejected</span>';
-                $reason = get_post_meta($product_id, '_rejection_reason', true);
-                if (!empty($reason)) {
-                    // Use the new CSS class for the rejection reason
-                    echo '<em class="rejection-reason">Reason: ' . esc_html($reason) . '</em>';
-                }
-            } else { // Covers 'draft' and 'pending'
-                echo '<span class="status-badge status-pending">Pending Review</span>';
+        <div class="dashboard-header">
+            <h1><?php _e('My Products', 'taptosell-core'); ?></h1>
+            <a href="<?php echo esc_url(home_url('/add-new-product/')); ?>" class="taptosell-button primary"><?php _e('Add a New Product', 'taptosell-core'); ?></a>
+        </div>
+
+
+        <?php
+        // Define the statuses for our tabs
+        $tabs = [
+            'all'       => __('All', 'taptosell-core'),
+            'publish'   => __('Live', 'taptosell-core'),
+            'pending'   => __('Pending', 'taptosell-core'),
+            'draft'     => __('Draft', 'taptosell-core'),
+            'rejected'  => __('Rejected', 'taptosell-core'),
+        ];
+
+        // Get product counts for the current supplier
+        $counts = [
+            'all' => 0, 'publish' => 0, 'pending' => 0,
+            'draft' => 0, 'rejected' => 0,
+        ];
+        
+        global $wpdb;
+        $status_counts = $wpdb->get_results( $wpdb->prepare(
+            "SELECT post_status, COUNT(*) as num_posts FROM {$wpdb->posts} WHERE post_type = 'product' AND post_author = %d GROUP BY post_status",
+            $current_user_id
+        ), ARRAY_A );
+
+        foreach ($status_counts as $row) {
+            if (array_key_exists($row['post_status'], $counts)) {
+                $counts[$row['post_status']] = (int) $row['num_posts'];
             }
+        }
+        $counts['all'] = array_sum($counts);
 
-            echo '</td>';
-            echo '<td>';
-            
-            if ($status === 'draft' || $status === 'pending' || $status === 'rejected' || $status === 'publish') {
+        $current_tab = isset($_GET['status']) && array_key_exists($_GET['status'], $tabs) ? sanitize_key($_GET['status']) : 'all';
+
+        // Display the tab navigation menu
+        echo '<div class="supplier-product-tabs">';
+        foreach ($tabs as $status_slug => $status_label) {
+            $class = ($current_tab === $status_slug) ? 'nav-tab-active' : '';
+            $url = add_query_arg('status', $status_slug, get_permalink());
+            echo '<a href="' . esc_url($url) . '" class="' . esc_attr($class) . '">';
+            echo esc_html($status_label);
+            echo ' <span class="count">' . esc_html($counts[$status_slug]) . '</span>';
+            echo '</a>';
+        }
+        echo '</div>';
+
+        // Set up WP_Query arguments to fetch the products
+        $paged = (get_query_var('paged')) ? get_query_var('paged') : 1;
+        $args = [
+            'post_type'      => 'product',
+            'author'         => $current_user_id,
+            'posts_per_page' => 10,
+            'paged'          => $paged,
+        ];
+
+        if ($current_tab !== 'all') {
+            $args['post_status'] = $current_tab;
+        } else {
+            $args['post_status'] = ['publish', 'pending', 'draft', 'rejected'];
+        }
+
+        $product_query = new WP_Query($args);
+
+        if ( $product_query->have_posts() ) {
+            // --- REVISED TABLE STRUCTURE ---
+            echo '<table class="taptosell-table taptosell-product-list"><thead><tr>';
+            echo '<th>Product</th>';
+            echo '<th>Price</th>';
+            echo '<th>Stock</th>';
+            echo '<th>Status</th>';
+            echo '<th>Actions</th>';
+            echo '</tr></thead><tbody>';
+
+            while ( $product_query->have_posts() ) {
+                $product_query->the_post();
+                $product_id = get_the_ID();
+                $status = get_post_status($product_id);
+                $stock = get_post_meta($product_id, '_stock_quantity', true);
+                $price = get_post_meta($product_id, '_price', true);
+
+                echo '<tr>';
+                // New combined "Product" column
+                echo '<td data-label="Product">';
+                echo '<div class="product-info-flex">';
+                echo get_the_post_thumbnail($product_id, [60, 60]);
+                echo '<div class="product-details">';
+                echo '<strong>' . get_the_title() . '</strong>';
+                echo '<small>SKU: ' . esc_html(get_post_meta($product_id, '_sku', true)) . '</small>';
+                echo '</div></div></td>';
+                
+                // Price and Stock columns
+                echo '<td data-label="Price">RM ' . number_format((float)$price, 2) . '</td>';
+                echo '<td data-label="Stock">' . (is_numeric($stock) ? esc_html($stock) : 'N/A') . '</td>';
+                
+                // Status column with badge
+                echo '<td data-label="Status">';
+                echo '<span class="taptosell-status-badge status-' . esc_attr($status) . '">' . esc_html(ucfirst($status)) . '</span>';
+                if ($status === 'rejected') {
+                    $reason = get_post_meta($product_id, '_rejection_reason', true);
+                    if (!empty($reason)) {
+                        echo '<em class="rejection-reason">Reason: ' . esc_html($reason) . '</em>';
+                    }
+                }
+                echo '</td>';
+
+                // Actions column with icons
+                echo '<td data-label="Actions">';
                 $edit_page = get_page_by_title('Edit Product');
                 if ($edit_page) {
                     $edit_link = add_query_arg('product_id', get_the_ID(), get_permalink($edit_page->ID));
-                    echo '<a href="' . esc_url($edit_link) . '">Edit</a>';
+                    echo '<a href="' . esc_url($edit_link) . '" class="taptosell-button-icon" title="Edit"><span class="dashicons dashicons-edit"></span></a>';
                 }
-            } else {
-                echo '—';
+                $delete_link = wp_nonce_url(add_query_arg(['action' => 'delete_product', 'product_id' => $product_id], get_permalink()), 'taptosell_delete_product_nonce', 'security');
+                echo '<a href="' . esc_url($delete_link) . '" class="taptosell-button-icon delete" title="Delete" onclick="return confirm(\'Are you sure you want to delete this product?\');"><span class="dashicons dashicons-trash"></span></a>';
+                echo '</td></tr>';
             }
-            echo '</td></tr>';
+            echo '</tbody></table>';
+
+            // Pagination links
+            $big = 999999999;
+            echo paginate_links([
+                'base'    => str_replace($big, '%#%', esc_url(get_pagenum_link($big))),
+                'format'  => '?paged=%#%',
+                'current' => max(1, get_query_var('paged')),
+                'total'   => $product_query->max_num_pages,
+            ]);
+
+        } else { 
+            echo '<p>No products found for this status.</p>'; 
         }
-        echo '</tbody></table>';
-    } else { echo '<p>You have not submitted any products yet.</p>'; }
-    wp_reset_postdata();
+        wp_reset_postdata();
+    ?>
+    </div>
+    <?php
     return ob_get_clean();
 }
 add_shortcode('supplier_my_products', 'taptosell_supplier_my_products_shortcode');
