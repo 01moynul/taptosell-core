@@ -852,3 +852,127 @@ li.notification-unread {
 .taptosell-add-product-form .form-actions .taptosell-button:not(:last-child) {
     margin-right: 10px;
 }
+
+/* Grid layout for placing fields side-by-side */
+.taptosell-form-section .form-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px; /* Space between columns */
+}
+
+/* =================================================================
+ * 12. Product Variations Form (New)
+ * ================================================================= */
+
+/* Divider line within a form section */
+.taptosell-container .form-divider {
+    border: none;
+    border-top: 1px solid #eee;
+    margin: 30px 0;
+}
+
+/* Toggle Switch Styling */
+.switch-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    width: auto;
+    height: 34px;
+    cursor: pointer;
+}
+.switch-toggle strong {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    color: #333;
+    user-select: none; /* Prevents text from being highlighted on click */
+}
+.switch-toggle input { 
+    display: none; 
+}
+.switch-toggle .slider {
+    position: relative;
+    cursor: pointer;
+    width: 60px;
+    height: 34px;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
+    margin-right: 15px;
+}
+.switch-toggle .slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+.switch-toggle input:checked + .slider { 
+    background-color: #23B574; 
+}
+.switch-toggle input:checked + .slider:before { 
+    transform: translateX(26px); 
+}
+
+/* Variation Group Styling */
+.variation-group {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background: #fcfcfc;
+}
+.variation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.variation-name-input {
+    border: none !important;
+    font-size: 1.2em !important;
+    font-weight: bold;
+    padding: 5px 0 !important;
+}
+.remove-variation-group {
+    border: none;
+    background: transparent;
+    font-size: 24px;
+    cursor: pointer;
+    color: #aaa;
+}
+.remove-variation-group:hover { color: #dc3545; }
+
+/* Variation Options (Tags) */
+.variation-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+.variation-option-tag {
+    background-color: #e9ecef;
+    padding: 5px 10px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+}
+.variation-option-tag .remove-option {
+    margin-left: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    color: #888;
+}
+.variation-option-tag .remove-option:hover { color: #333; }
+.variation-option-input { max-width: 250px !important; }
+
+/* Variation List Table */
+#variation-list-table-wrapper table { margin-top: 10px; }
+#variation-list-table-wrapper td { vertical-align: middle; }
+#variation-list-table-wrapper input[type="text"],
+#variation-list-table-wrapper input[type="number"] {
+    max-width: none !important; /* Allow table inputs to be smaller */
+}

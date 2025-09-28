@@ -221,4 +221,22 @@ function taptosell_prevent_dynamic_page_caching() {
 }
 add_action( 'template_redirect', 'taptosell_prevent_dynamic_page_caching' );
 
+/**
+ * --- NEW (Phase 10): Enqueues the script for the product variations form. ---
+ * This script is only loaded on the "Add New Product" page to handle the dynamic UI.
+ */
+function taptosell_enqueue_variations_script() {
+    // Check if we are on the specific "Add New Product" page before loading the script.
+    if ( is_page('add-new-product') ) {
+        wp_enqueue_script(
+            'taptosell-variations',
+            TAPTOSELL_CORE_URL . 'assets/js/product-variations.js',
+            ['jquery'], // This script depends on jQuery
+            TAPTOSELL_CORE_VERSION,
+            true // Load in the footer
+        );
+    }
+}
+add_action('wp_enqueue_scripts', 'taptosell_enqueue_variations_script');
+
 ?>
