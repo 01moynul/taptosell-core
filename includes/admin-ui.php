@@ -243,89 +243,121 @@ function taptosell_rejection_reason_metabox_html($post) {
     echo '<p class="description">After entering the reason, use the "Reject" button in the "Actions" column on the main Products list, or update the status manually.</p>';
 }
 
+// In: includes/admin-ui.php
+
 /**
- * --- NEW: Displays custom fields on the user's profile page in the admin area. ---
- * This makes the data collected during registration visible to admins.
+ * --- UPDATED: Displays role-specific custom fields on the user's profile page. ---
  */
 function taptosell_display_custom_user_profile_fields($user) {
-    // Only show this section for our custom roles
-    if ( !in_array('dropshipper', (array)$user->roles) && !in_array('supplier', (array)$user->roles) ) {
-        return;
+    $user_roles = (array)$user->roles;
+
+    // --- A) Display fields for DROPSHIPPERS ---
+    if ( in_array('dropshipper', $user_roles) ) {
+        ?>
+        <h3>TapToSell Dropshipper Information</h3>
+        <table class="form-table">
+            <tr>
+                <th><label for="full_name">Full Name (As Per IC)</label></th>
+                <td><input type="text" name="full_name" value="<?php echo esc_attr(get_user_meta($user->ID, 'full_name', true)); ?>" class="regular-text" /></td>
+            </tr>
+            <tr>
+                <th><label for="company_name">Company Name</label></th>
+                <td><input type="text" name="company_name" value="<?php echo esc_attr(get_user_meta($user->ID, 'company_name', true)); ?>" class="regular-text" /></td>
+            </tr>
+            <tr>
+                <th><label for="ic_number">IC Number</label></th>
+                <td><input type="text" name="ic_number" value="<?php echo esc_attr(get_user_meta($user->ID, 'ic_number', true)); ?>" class="regular-text" /></td>
+            </tr>
+            <tr>
+                <th><label for="mobile_number">Mobile Number</label></th>
+                <td><input type="text" name="mobile_number" value="<?php echo esc_attr(get_user_meta($user->ID, 'mobile_number', true)); ?>" class="regular-text" /></td>
+            </tr>
+        </table>
+        <?php
     }
-    ?>
-    <h3>TapToSell Additional Information</h3>
-    <table class="form-table">
-        <tr>
-            <th><label for="full_name">Full Name (As Per IC)</label></th>
-            <td><input type="text" name="full_name" id="full_name" value="<?php echo esc_attr(get_user_meta($user->ID, 'full_name', true)); ?>" class="regular-text" /></td>
-        </tr>
-        <tr>
-            <th><label for="company_name">Company Name</label></th>
-            <td><input type="text" name="company_name" id="company_name" value="<?php echo esc_attr(get_user_meta($user->ID, 'company_name', true)); ?>" class="regular-text" /></td>
-        </tr>
-        <tr>
-            <th><label for="ic_number">IC Number</label></th>
-            <td><input type="text" name="ic_number" id="ic_number" value="<?php echo esc_attr(get_user_meta($user->ID, 'ic_number', true)); ?>" class="regular-text" /></td>
-        </tr>
-        <tr>
-            <th><label for="gender">Gender</label></th>
-            <td><input type="text" name="gender" id="gender" value="<?php echo esc_attr(get_user_meta($user->ID, 'gender', true)); ?>" class="regular-text" /></td>
-        </tr>
-        <tr>
-            <th><label for="mobile_number">Mobile Number</label></th>
-            <td><input type="text" name="mobile_number" id="mobile_number" value="<?php echo esc_attr(get_user_meta($user->ID, 'mobile_number', true)); ?>" class="regular-text" /></td>
-        </tr>
-        
-        <?php // The billing fields are standard WP/WooCommerce fields, let's make them editable here too. ?>
-        <tr>
-            <th><label for="billing_address_1">Address</label></th>
-            <td><input type="text" name="billing_address_1" id="billing_address_1" value="<?php echo esc_attr(get_user_meta($user->ID, 'billing_address_1', true)); ?>" class="regular-text" /></td>
-        </tr>
-        <tr>
-            <th><label for="billing_postcode">Postcode</label></th>
-            <td><input type="text" name="billing_postcode" id="billing_postcode" value="<?php echo esc_attr(get_user_meta($user->ID, 'billing_postcode', true)); ?>" class="regular-text" /></td>
-        </tr>
-        <tr>
-            <th><label for="billing_city">City</label></th>
-            <td><input type="text" name="billing_city" id="billing_city" value="<?php echo esc_attr(get_user_meta($user->ID, 'billing_city', true)); ?>" class="regular-text" /></td>
-        </tr>
-         <tr>
-            <th><label for="billing_state">State</label></th>
-            <td><input type="text" name="billing_state" id="billing_state" value="<?php echo esc_attr(get_user_meta($user->ID, 'billing_state', true)); ?>" class="regular-text" /></td>
-        </tr>
-    </table>
-    <?php
+
+    // --- B) Display fields for SUPPLIERS ---
+    if ( in_array('supplier', $user_roles) ) {
+        $ssm_url = get_user_meta($user->ID, 'ssm_document_url', true);
+        $bank_statement_url = get_user_meta($user->ID, 'bank_statement_url', true);
+        ?>
+        <h3>TapToSell Supplier Information</h3>
+        <table class="form-table">
+            <tr>
+                <th><label for="company_name">Company Name (As per SSM)</label></th>
+                <td><input type="text" name="company_name" value="<?php echo esc_attr(get_user_meta($user->ID, 'company_name', true)); ?>" class="regular-text" /></td>
+            </tr>
+            <tr>
+                <th><label for="pic_name">Person in Charge (PIC)</label></th>
+                <td><input type="text" name="pic_name" value="<?php echo esc_attr(get_user_meta($user->ID, 'pic_name', true)); ?>" class="regular-text" /></td>
+            </tr>
+             <tr>
+                <th><label for="mobile_number">Mobile Number</label></th>
+                <td><input type="text" name="mobile_number" value="<?php echo esc_attr(get_user_meta($user->ID, 'mobile_number', true)); ?>" class="regular-text" /></td>
+            </tr>
+            <tr>
+                <th><label for="billing_address_1">Address</label></th>
+                <td><textarea name="billing_address_1" rows="3" class="regular-text"><?php echo esc_textarea(get_user_meta($user->ID, 'billing_address_1', true)); ?></textarea></td>
+            </tr>
+             <tr>
+                <th><label for="billing_postcode">Postcode</label></th>
+                <td><input type="text" name="billing_postcode" value="<?php echo esc_attr(get_user_meta($user->ID, 'billing_postcode', true)); ?>" class="regular-text" /></td>
+            </tr>
+
+            <tr class="document-links">
+                <th><label>SSM Document</label></th>
+                <td>
+                    <?php if ($ssm_url): ?>
+                        <a href="<?php echo esc_url($ssm_url); ?>" target="_blank">View Uploaded Document</a>
+                    <?php else: ?>
+                        <span>No document uploaded.</span>
+                    <?php endif; ?>
+                </td>
+            </tr>
+            <tr class="document-links">
+                <th><label>Bank Statement</label></th>
+                <td>
+                    <?php if ($bank_statement_url): ?>
+                        <a href="<?php echo esc_url($bank_statement_url); ?>" target="_blank">View Uploaded Document</a>
+                    <?php else: ?>
+                        <span>No document uploaded.</span>
+                    <?php endif; ?>
+                </td>
+            </tr>
+        </table>
+        <?php
+    }
 }
 add_action('show_user_profile', 'taptosell_display_custom_user_profile_fields');
 add_action('edit_user_profile', 'taptosell_display_custom_user_profile_fields');
 
 
 /**
- * --- NEW: Saves the custom fields when an admin updates a user's profile. ---
+ * --- UPDATED: Saves the role-specific custom fields from the user profile screen. ---
  */
 function taptosell_save_custom_user_profile_fields($user_id) {
     if (!current_user_can('edit_user', $user_id)) {
         return false;
     }
-    // We only need to save the fields that are not standard WordPress/WooCommerce fields,
-    // as those will be saved automatically if their inputs have the correct names.
-    $fields_to_save = [
-        'full_name',
-        'company_name',
-        'ic_number',
-        'gender',
-        'mobile_number',
-        'billing_address_1',
-        'billing_postcode',
-        'billing_city',
-        'billing_state',
+    
+    // Define all possible text-based fields from both forms
+    $all_fields = [
+        'full_name', 'ic_number', 'gender', // Dropshipper
+        'pic_name',                         // Supplier
+        'company_name', 'mobile_number',    // Shared
+        'billing_address_1', 'billing_postcode', 'billing_city', 'billing_state', // Shared Address
     ];
 
-    foreach ($fields_to_save as $field) {
+    // Loop through and save any of the fields that were submitted
+    foreach ($all_fields as $field) {
         if (isset($_POST[$field])) {
-            update_user_meta($user_id, $field, sanitize_text_field($_POST[$field]));
+            // Use sanitize_textarea_field for address, and sanitize_text_field for all others
+            $value = ($field === 'billing_address_1') ? sanitize_textarea_field($_POST[$field]) : sanitize_text_field($_POST[$field]);
+            update_user_meta($user_id, $field, $value);
         }
     }
+    
+    // Note: We do not handle file re-uploads here. This function is for editing the text data.
 }
 add_action('personal_options_update', 'taptosell_save_custom_user_profile_fields');
 add_action('edit_user_profile_update', 'taptosell_save_custom_user_profile_fields');
