@@ -38,4 +38,5 @@ require_once TAPTOSELL_CORE_PATH . 'includes/api-shopee.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/subscription-functions.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/notifications-functions.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/modal-login.php';
+require_once TAPTOSELL_CORE_PATH . 'includes/security-2fa-functions.php';
 ?>
