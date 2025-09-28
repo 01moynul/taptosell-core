@@ -243,3 +243,89 @@ function taptosell_rejection_reason_metabox_html($post) {
     echo '<p class="description">After entering the reason, use the "Reject" button in the "Actions" column on the main Products list, or update the status manually.</p>';
 }
 
+/**
+ * --- NEW: Displays custom fields on the user's profile page in the admin area. ---
+ * This makes the data collected during registration visible to admins.
+ */
+function taptosell_display_custom_user_profile_fields($user) {
+    // Only show this section for our custom roles
+    if ( !in_array('dropshipper', (array)$user->roles) && !in_array('supplier', (array)$user->roles) ) {
+        return;
+    }
+    ?>
+    <h3>TapToSell Additional Information</h3>
+    <table class="form-table">
+        <tr>
+            <th><label for="full_name">Full Name (As Per IC)</label></th>
+            <td><input type="text" name="full_name" id="full_name" value="<?php echo esc_attr(get_user_meta($user->ID, 'full_name', true)); ?>" class="regular-text" /></td>
+        </tr>
+        <tr>
+            <th><label for="company_name">Company Name</label></th>
+            <td><input type="text" name="company_name" id="company_name" value="<?php echo esc_attr(get_user_meta($user->ID, 'company_name', true)); ?>" class="regular-text" /></td>
+        </tr>
+        <tr>
+            <th><label for="ic_number">IC Number</label></th>
+            <td><input type="text" name="ic_number" id="ic_number" value="<?php echo esc_attr(get_user_meta($user->ID, 'ic_number', true)); ?>" class="regular-text" /></td>
+        </tr>
+        <tr>
+            <th><label for="gender">Gender</label></th>
+            <td><input type="text" name="gender" id="gender" value="<?php echo esc_attr(get_user_meta($user->ID, 'gender', true)); ?>" class="regular-text" /></td>
+        </tr>
+        <tr>
+            <th><label for="mobile_number">Mobile Number</label></th>
+            <td><input type="text" name="mobile_number" id="mobile_number" value="<?php echo esc_attr(get_user_meta($user->ID, 'mobile_number', true)); ?>" class="regular-text" /></td>
+        </tr>
+        
+        <?php // The billing fields are standard WP/WooCommerce fields, let's make them editable here too. ?>
+        <tr>
+            <th><label for="billing_address_1">Address</label></th>
+            <td><input type="text" name="billing_address_1" id="billing_address_1" value="<?php echo esc_attr(get_user_meta($user->ID, 'billing_address_1', true)); ?>" class="regular-text" /></td>
+        </tr>
+        <tr>
+            <th><label for="billing_postcode">Postcode</label></th>
+            <td><input type="text" name="billing_postcode" id="billing_postcode" value="<?php echo esc_attr(get_user_meta($user->ID, 'billing_postcode', true)); ?>" class="regular-text" /></td>
+        </tr>
+        <tr>
+            <th><label for="billing_city">City</label></th>
+            <td><input type="text" name="billing_city" id="billing_city" value="<?php echo esc_attr(get_user_meta($user->ID, 'billing_city', true)); ?>" class="regular-text" /></td>
+        </tr>
+         <tr>
+            <th><label for="billing_state">State</label></th>
+            <td><input type="text" name="billing_state" id="billing_state" value="<?php echo esc_attr(get_user_meta($user->ID, 'billing_state', true)); ?>" class="regular-text" /></td>
+        </tr>
+    </table>
+    <?php
+}
+add_action('show_user_profile', 'taptosell_display_custom_user_profile_fields');
+add_action('edit_user_profile', 'taptosell_display_custom_user_profile_fields');
+
+
+/**
+ * --- NEW: Saves the custom fields when an admin updates a user's profile. ---
+ */
+function taptosell_save_custom_user_profile_fields($user_id) {
+    if (!current_user_can('edit_user', $user_id)) {
+        return false;
+    }
+    // We only need to save the fields that are not standard WordPress/WooCommerce fields,
+    // as those will be saved automatically if their inputs have the correct names.
+    $fields_to_save = [
+        'full_name',
+        'company_name',
+        'ic_number',
+        'gender',
+        'mobile_number',
+        'billing_address_1',
+        'billing_postcode',
+        'billing_city',
+        'billing_state',
+    ];
+
+    foreach ($fields_to_save as $field) {
+        if (isset($_POST[$field])) {
+            update_user_meta($user_id, $field, sanitize_text_field($_POST[$field]));
+        }
+    }
+}
+add_action('personal_options_update', 'taptosell_save_custom_user_profile_fields');
+add_action('edit_user_profile_update', 'taptosell_save_custom_user_profile_fields');
