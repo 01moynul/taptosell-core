@@ -3,53 +3,85 @@
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
+// In: includes/user-registration.php
+
 /**
- * Handles the registration form submission.
- * Marks new users as 'pending' and creates an admin notification.
+ * --- UPDATED: Handles the custom registration form submission with 2FA integration. ---
  */
-function taptosell_handle_registration() {
-    if ( isset( $_POST['taptosell_register_submit'] ) ) {
-        if ( ! isset( $_POST['taptosell_nonce_field'] ) || ! wp_verify_nonce( $_POST['taptosell_nonce_field'], 'taptosell_nonce_action' ) ) {
-            wp_die( 'Security check failed!' );
-        }
-        
-        $username = sanitize_user( $_POST['taptosell_username'] );
-        $email    = sanitize_email( $_POST['taptosell_email'] );
-        $password = $_POST['taptosell_password'];
-        $role     = sanitize_text_field( $_POST['taptosell_role'] );
+function taptosell_handle_registration_form() {
+    // Check if our registration form has been submitted
+    if (isset($_POST['taptosell_register_nonce']) && wp_verify_nonce($_POST['taptosell_register_nonce'], 'taptosell_register')) {
 
-        if ( empty($username) || empty($email) || empty($password) || empty($role) || !is_email($email) || username_exists($username) || email_exists($email) || !in_array($role, ['supplier', 'dropshipper']) ) {
-            return;
+        // Sanitize and validate all form fields
+        $username = sanitize_user($_POST['username']);
+        $email = sanitize_email($_POST['email']);
+        $password = $_POST['password'];
+        $role = sanitize_text_field($_POST['role']);
+
+        // Basic validation checks
+        if (empty($username) || empty($email) || empty($password) || empty($role)) {
+            wp_redirect(add_query_arg('registration_error', 'empty_fields', wp_get_referer()));
+            exit;
+        }
+        if (!is_email($email)) {
+            wp_redirect(add_query_arg('registration_error', 'invalid_email', wp_get_referer()));
+            exit;
+        }
+        if (username_exists($username)) {
+            wp_redirect(add_query_arg('registration_error', 'username_exists', wp_get_referer()));
+            exit;
+        }
+        if (email_exists($email)) {
+            wp_redirect(add_query_arg('registration_error', 'email_exists', wp_get_referer()));
+            exit;
+        }
+        if (!in_array($role, ['supplier', 'dropshipper'])) {
+            wp_redirect(add_query_arg('registration_error', 'invalid_role', wp_get_referer()));
+            exit;
         }
 
-        $user_id = wp_insert_user([
+        // All checks passed, create the new user
+        $user_data = [
             'user_login' => $username,
             'user_email' => $email,
             'user_pass'  => $password,
             'role'       => $role
-        ]);
+        ];
+        $user_id = wp_insert_user($user_data);
 
-        if ( ! is_wp_error( $user_id ) ) {
-            update_user_meta($user_id, '_account_status', 'pending');
+        // Check if user was created successfully
+        if (!is_wp_error($user_id)) {
             
-            // --- NEW: Generate a notification for all Operational Admins ---
-            $op_admins = get_users(['role' => 'operational_admin', 'fields' => 'ID']);
-            if (!empty($op_admins)) {
-                $message = 'New user "' . esc_html($username) . '" has registered and is pending approval.';
-                $link = admin_url('users.php');
-                foreach ($op_admins as $admin_id) {
-                    taptosell_add_notification($admin_id, $message, $link);
-                }
-            }
+            // --- THIS IS THE NEW 2FA WORKFLOW ---
+
+            // 1. Set the initial account status to 'unverified'.
+            // The user cannot access anything until they verify their email.
+            update_user_meta($user_id, '_account_status', 'unverified');
+
+            // 2. Send the 2FA verification code to their email using our new function.
+            taptosell_send_2fa_code($user_id, $email);
+
+            // 3. Automatically log the new user in so they can access the verification page.
+            wp_set_current_user($user_id);
+            wp_set_auth_cookie($user_id, true);
+
+            // 4. Redirect them to our new verification page to complete the process.
+            // (Ensure your page slug is 'verify-account')
+            $redirect_url = home_url('/verify-account/'); 
+            wp_redirect($redirect_url);
+            exit;
             
-            $login_url = wp_login_url() . '?registration=pending';
-            wp_redirect( $login_url );
+            // --- END OF NEW WORKFLOW ---
+
+        } else {
+            // If there was an error creating the user, redirect with a generic error
+            wp_redirect(add_query_arg('registration_error', 'user_creation_failed', wp_get_referer()));
             exit;
         }
     }
 }
-add_action( 'init', 'taptosell_handle_registration' );
-
+// The add_action line remains the same
+add_action('init', 'taptosell_handle_registration_form');
 
 function taptosell_registration_form_shortcode() {
     ob_start();
