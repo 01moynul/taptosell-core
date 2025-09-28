@@ -222,12 +222,14 @@ function taptosell_prevent_dynamic_page_caching() {
 add_action( 'template_redirect', 'taptosell_prevent_dynamic_page_caching' );
 
 /**
- * --- NEW (Phase 10): Enqueues the script for the product variations form. ---
- * This script is only loaded on the "Add New Product" page to handle the dynamic UI.
+ * --- UPDATED (Phase 10): Enqueues the script for the product variations form. ---
+ * Now loads on both "Add New Product" and "Edit Product" pages.
+ * Passes saved variation data to the script on the edit page.
  */
 function taptosell_enqueue_variations_script() {
-    // Check if we are on the specific "Add New Product" page before loading the script.
-    if ( is_page('add-new-product') ) {
+    // We need this script on both the 'Add New Product' and 'Edit Product' pages.
+    if ( is_page('add-new-product') || is_page('edit-product') ) {
+        
         wp_enqueue_script(
             'taptosell-variations',
             TAPTOSELL_CORE_URL . 'assets/js/product-variations.js',
@@ -235,6 +237,24 @@ function taptosell_enqueue_variations_script() {
             TAPTOSELL_CORE_VERSION,
             true // Load in the footer
         );
+
+        // --- If we are on the EDIT page, pass the product's variation data to the script ---
+        if ( is_page('edit-product') && isset($_GET['product_id']) ) {
+            $product_id = (int)$_GET['product_id'];
+            
+            // Get the saved variation data from post meta
+            $variation_attributes = get_post_meta($product_id, '_variation_attributes', true);
+            $variations_data = get_post_meta($product_id, '_variations', true);
+
+            // Create an array to hold the data
+            $data_to_pass = [
+                'attributes' => !empty($variation_attributes) ? $variation_attributes : [],
+                'variations' => !empty($variations_data) ? $variations_data : [],
+            ];
+            
+            // Use wp_localize_script to make this PHP data available in our JS file
+            wp_localize_script('taptosell-variations', 'taptosell_edit_data', $data_to_pass);
+        }
     }
 }
 add_action('wp_enqueue_scripts', 'taptosell_enqueue_variations_script');

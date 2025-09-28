@@ -529,109 +529,158 @@ function taptosell_supplier_my_products_shortcode() {
 add_shortcode('supplier_my_products', 'taptosell_supplier_my_products_shortcode');
 
 
-// --- UPDATED (Price Request): Shortcode for the EDIT product form ---
+/**
+ * --- UPDATED (Phase 10): Shortcode for the EDIT product form ---
+ * This now uses the new form structure and loads existing product data.
+ * [supplier_edit_product_form]
+ */
 function taptosell_product_edit_form_shortcode() {
+    // Security Checks
     if ( !is_user_logged_in() || !current_user_can('edit_posts') ) { return '<p>You do not have permission to view this content.</p>'; }
     if (!isset($_GET['product_id'])) { return '<p>No product selected. Go back to your <a href="/supplier-dashboard">dashboard</a> to select a product to edit.</p>'; }
 
     $product_id = (int)$_GET['product_id'];
     $product = get_post($product_id);
     
+    // Permission check: ensure current user is the author of the product.
     if (!$product || ($product->post_author != get_current_user_id() && !current_user_can('manage_options'))) {
         return '<p>You do not have permission to edit this product.</p>';
     }
 
-    $is_approved = ($product->post_status === 'publish');
-    $readonly_attr = $is_approved ? 'readonly' : '';
-    
-    $price = get_post_meta($product_id, '_price', true);
-    $sku = get_post_meta($product_id, '_sku', true);
-    $stock = get_post_meta($product_id, '_stock_quantity', true);
+    // --- Load all existing product data ---
+    $product_title = $product->post_title;
+    $product_description = $product->post_content;
     $category_terms = get_the_terms($product_id, 'product_category');
-    $brand_terms = get_the_terms($product_id, 'brand');
     $selected_category = (!empty($category_terms)) ? $category_terms[0]->term_id : 0;
-    $brand_names = [];
-    if (!empty($brand_terms)) { foreach ($brand_terms as $term) { $brand_names[] = $term->name; } }
+    
+    $is_variable = has_term('variable', 'product_type', $product_id);
 
+    // Load simple product data
+    $simple_price = get_post_meta($product_id, '_price', true);
+    $simple_sku = get_post_meta($product_id, '_sku', true);
+    $simple_stock = get_post_meta($product_id, '_stock_quantity', true);
+
+    // Load common meta
+    $video_url = get_post_meta($product_id, '_video_url', true);
     $weight = get_post_meta($product_id, '_weight', true);
     $length = get_post_meta($product_id, '_length', true);
     $width = get_post_meta($product_id, '_width', true);
     $height = get_post_meta($product_id, '_height', true);
-    $video_url = get_post_meta($product_id, '_video_url', true);
-    
+
     ob_start();
-
-    // --- NEW: Show a success message if a price request was submitted ---
-    if (isset($_GET['price_request']) && $_GET['price_request'] === 'success') {
-        echo '<div style="background-color: #d4edda; color: #155724; padding: 15px; margin-bottom: 20px;">Your price change request has been submitted for review.</div>';
-    }
-
     ?>
-    <h3>Edit Product: <?php echo esc_html($product->post_title); ?></h3>
-    <form id="edit-product-form" method="post" action="">
-        <input type="hidden" name="product_id" value="<?php echo esc_attr($product_id); ?>">
-        <p><label>Name</label><br /><input type="text" value="<?php echo esc_attr($product->post_title); ?>" name="product_title" required <?php echo $readonly_attr; ?> /></p>
-
-        <div style="margin-bottom: 20px;">
-            <label for="product_description">Product Description</label><br />
-            <?php
-            wp_editor($product->post_content, 'product_description', [
-                'textarea_name' => 'product_description', 'media_buttons' => false, 'textarea_rows' => 10,
-                'teeny' => true, 'editor_css' => $is_approved ? '<style>.wp-editor-container{background-color:#f0f0f0;}</style>' : '',
-                'tinymce' => !$is_approved, 'quicktags' => !$is_approved,
-            ]);
-            ?>
-        </div>
-
-        <p><label>Your Price (RM)</label><br /><input type="number" step="0.01" value="<?php echo esc_attr($price); ?>" name="product_price" required <?php echo $readonly_attr; ?> /></p>
-        <p><label>SKU</label><br /><input type="text" value="<?php echo esc_attr($sku); ?>" name="product_sku" required <?php echo $readonly_attr; ?> /></p>
-        <p><label for="product_stock">Stock Quantity</label><br /><input type="number" step="1" id="product_stock" value="<?php echo esc_attr($stock); ?>" name="product_stock" required /></p>
-
-        <div style="border: 1px solid #ddd; padding: 15px; margin: 20px 0;">
-            <h4>Shipping & Media</h4>
-            <p><label>Weight (kg)</label><br /><input type="number" step="0.01" name="product_weight" value="<?php echo esc_attr($weight); ?>" <?php echo $readonly_attr; ?>></p>
-            <p><label>Package Dimensions (cm)</label><br />
-                <input type="number" step="0.01" name="product_length" value="<?php echo esc_attr($length); ?>" placeholder="Length" style="width: 100px;" <?php echo $readonly_attr; ?>>
-                <input type="number" step="0.01" name="product_width" value="<?php echo esc_attr($width); ?>" placeholder="Width" style="width: 100px;" <?php echo $readonly_attr; ?>>
-                <input type="number" step="0.01" name="product_height" value="<?php echo esc_attr($height); ?>" placeholder="Height" style="width: 100px;" <?php echo $readonly_attr; ?>>
-            </p>
-            <p><label>Product Video URL</label><br /><input type="url" name="product_video" value="<?php echo esc_attr($video_url); ?>" style="width: 100%; max-width: 400px;" <?php echo $readonly_attr; ?>></p>
-        </div>
-
-        <p><label>Category</label><br />
-        <?php 
-        $cat_args = [ 'taxonomy' => 'product_category', 'name' => 'product_category', 'show_option_none' => 'Select a Category', 'hierarchical' => 1, 'required' => true, 'hide_empty' => 0, 'selected' => $selected_category, ];
-        if ($is_approved) { $cat_args['disabled'] = 'disabled'; }
-        wp_dropdown_categories($cat_args); 
-        ?>
-        </p>
-        <p><label>Brands</label><br /><input type="text" value="<?php echo esc_attr(implode(', ', $brand_names)); ?>" name="product_brands" <?php echo $readonly_attr; ?> /><small>Enter brands separated by commas.</small></p>
-        <p><strong>Current Image:</strong><br/><?php echo get_the_post_thumbnail($product_id, 'thumbnail'); ?></p>
-        <?php wp_nonce_field('taptosell_edit_product', 'taptosell_product_edit_nonce'); ?>
-        <p><input type="submit" value="Update Product" name="taptosell_update_product_submit" /></p>
-    </form>
-
-    <?php 
-    // --- NEW: Add the Price Change Request Form for approved products ---
-    if ($is_approved): ?>
-    <hr style="margin: 40px 0;">
-    <div class="price-change-request-form">
-        <h3>Request a Price Change</h3>
-        <form method="post" action="">
+    <div class="taptosell-container taptosell-add-product-form">
+        <form id="edit-product-form" method="post" action="" enctype="multipart/form-data">
             <input type="hidden" name="product_id" value="<?php echo esc_attr($product_id); ?>">
-            <input type="hidden" name="old_price" value="<?php echo esc_attr($price); ?>">
-            <?php wp_nonce_field('taptosell_price_request_action', 'taptosell_price_request_nonce'); ?>
-            <p>
-                <label for="new_price">New Price (RM)</label><br/>
-                <input type="number" step="0.01" name="new_price" id="new_price" required>
-            </p>
-            <p>
-                <button type="submit" name="taptosell_action" value="request_price_change">Submit Request</button>
-            </p>
+
+            <div class="form-header">
+                <h1><?php _e('Edit Product', 'taptosell-core'); ?></h1>
+                <div class="form-actions">
+                    <button type="submit" name="save_as_draft" class="taptosell-button secondary"><?php _e('Save Draft', 'taptosell-core'); ?></button>
+                    <button type="submit" name="taptosell_update_product_submit" class="taptosell-button primary"><?php _e('Update Product', 'taptosell-core'); ?></button>
+                </div>
+            </div>
+
+            <div class="taptosell-form-section">
+                <div class="section-header"><h2><?php _e('1. Basic Information', 'taptosell-core'); ?></h2></div>
+                <div class="section-content">
+                    <div class="form-row">
+                        <label for="product_title"><?php _e('Product Name', 'taptosell-core'); ?></label>
+                        <input type="text" id="product_title" name="product_title" value="<?php echo esc_attr($product_title); ?>" required>
+                    </div>
+                    <div class="form-row">
+                        <label for="product_category"><?php _e('Category', 'taptosell-core'); ?></label>
+                        <?php
+                        wp_dropdown_categories([
+                            'taxonomy' => 'product_category', 'name' => 'product_category',
+                            'selected' => $selected_category, 'hierarchical' => 1, 'required' => true,
+                            'hide_empty' => 0, 'class' => 'taptosell-select'
+                        ]);
+                        ?>
+                    </div>
+                    <div class="form-row">
+                        <label for="product_description"><?php _e('Product Description', 'taptosell-core'); ?></label>
+                        <?php wp_editor($product_description, 'product_description', ['textarea_name' => 'product_description']); ?>
+                    </div>
+                </div>
+            </div>
+
+            <div class="taptosell-form-section">
+                <div class="section-header"><h2><?php _e('2. Sales Information', 'taptosell-core'); ?></h2></div>
+                <div class="section-content">
+                    <div class="form-grid-3" id="simple-product-fields" style="<?php echo $is_variable ? 'display: none;' : ''; ?>">
+                        <div class="form-row">
+                            <label for="product_price"><?php _e('Your Price (RM)', 'taptosell-core'); ?></label>
+                            <input type="number" step="0.01" id="product_price" name="product_price" value="<?php echo esc_attr($simple_price); ?>" <?php echo !$is_variable ? 'required' : ''; ?>>
+                        </div>
+                        <div class="form-row">
+                            <label for="product_sku"><?php _e('SKU', 'taptosell-core'); ?></label>
+                            <input type="text" id="product_sku" name="product_sku" value="<?php echo esc_attr($simple_sku); ?>" <?php echo !$is_variable ? 'required' : ''; ?>>
+                        </div>
+                        <div class="form-row">
+                            <label for="product_stock"><?php _e('Stock Quantity', 'taptosell-core'); ?></label>
+                            <input type="number" step="1" id="product_stock" name="product_stock" value="<?php echo esc_attr($simple_stock); ?>" <?php echo !$is_variable ? 'required' : ''; ?>>
+                        </div>
+                    </div>
+                    <hr class="form-divider">
+                    <div class="form-row">
+                        <label class="switch-toggle">
+                            <input type="checkbox" id="enable-variations-toggle" <?php checked($is_variable); ?>>
+                            <span class="slider round"></span>
+                            <strong><?php _e('Enable Product Variations', 'taptosell-core'); ?></strong>
+                        </label>
+                    </div>
+                    <div id="variations-container" style="<?php echo $is_variable ? '' : 'display: none;'; ?>">
+                        <div id="variation-groups-wrapper">
+                            </div>
+                        <button type="button" id="add-variation-group" class="taptosell-button secondary"><?php _e('+ Add Variation Type', 'taptosell-core'); ?></button>
+                        <hr class="form-divider">
+                        <h4><?php _e('Variation List', 'taptosell-core'); ?></h4>
+                        <div id="variation-list-table-wrapper">
+                            </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="taptosell-form-section">
+                 <div class="section-header"><h2><?php _e('3. Media', 'taptosell-core'); ?></h2></div>
+                 <div class="section-content">
+                    <div class="form-row">
+                        <label><?php _e('Current Image', 'taptosell-core'); ?></label>
+                        <div style="margin-bottom: 10px;"><?php if (has_post_thumbnail($product_id)) { echo get_the_post_thumbnail($product_id, 'thumbnail'); } else { echo 'No image set.'; } ?></div>
+                        <label for="product_image"><?php _e('Upload New Image', 'taptosell-core'); ?></label>
+                        <input type="file" id="product_image" name="product_image" accept="image/*">
+                        <p class="form-hint"><?php _e('Only upload a new image if you want to replace the current one.', 'taptosell-core'); ?></p>
+                    </div>
+                     <div class="form-row">
+                        <label for="product_video"><?php _e('Product Video URL (Optional)', 'taptosell-core'); ?></label>
+                        <input type="url" id="product_video" name="product_video" value="<?php echo esc_attr($video_url); ?>">
+                    </div>
+                </div>
+            </div>
+
+            <div class="taptosell-form-section">
+                <div class="section-header"><h2><?php _e('4. Shipping', 'taptosell-core'); ?></h2></div>
+                <div class="section-content">
+                    <div class="form-row">
+                        <label for="product_weight"><?php _e('Weight (kg)', 'taptosell-core'); ?></label>
+                        <input type="number" step="0.01" id="product_weight" name="product_weight" value="<?php echo esc_attr($weight); ?>">
+                    </div>
+                    <div class="form-row">
+                        <label><?php _e('Package Dimensions (cm)', 'taptosell-core'); ?></label>
+                        <div class="form-grid-3">
+                            <input type="number" step="0.01" name="product_length" placeholder="Length" value="<?php echo esc_attr($length); ?>">
+                            <input type="number" step="0.01" name="product_width" placeholder="Width" value="<?php echo esc_attr($width); ?>">
+                            <input type="number" step="0.01" name="product_height" placeholder="Height" value="<?php echo esc_attr($height); ?>">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <?php wp_nonce_field('taptosell_edit_product', 'taptosell_product_edit_nonce'); ?>
         </form>
     </div>
-    <?php endif;
-
+    <?php
     return ob_get_clean();
 }
 add_shortcode('supplier_edit_product_form', 'taptosell_product_edit_form_shortcode');
