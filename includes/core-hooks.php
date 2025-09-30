@@ -259,4 +259,64 @@ function taptosell_enqueue_variations_script() {
 }
 add_action('wp_enqueue_scripts', 'taptosell_enqueue_variations_script');
 
+/**
+ * --- REVISED: Dynamically Filter Menu Items Based on User Role ---
+ * This function uses a "whitelist" approach to show only the menu items
+ * appropriate for the current user's role and login status.
+ *
+ * @param array $sorted_menu_items The menu items, sorted by appearance order.
+ * @return array The filtered menu items.
+ */
+function taptosell_filter_nav_menu_items($sorted_menu_items) {
+    // Get the current user object and their roles
+    $user = wp_get_current_user();
+    $is_logged_in = $user->exists();
+    $user_roles = (array) $user->roles;
+
+    // --- Rule for Admins: If the user is an admin, show everything and stop here. ---
+    if ( in_array('administrator', $user_roles) || in_array('operational_admin', $user_roles) ) {
+        return $sorted_menu_items;
+    }
+
+    // --- Define Page Groups ---
+    // NOTE: These titles must EXACTLY match the titles in your WordPress Menu settings.
+    $public_pages           = ['Home', 'coming soon'];
+    $logged_out_only_pages  = ['Login', 'Registration', 'Supplier Registration'];
+    $supplier_pages         = ['Supplier Dashboard', 'Add New Product'];
+    $dropshipper_pages      = ['Dropshipper Dashboard', 'Product Catalog', 'My Wallet', 'My Shops', 'My Subscription', 'Product Matching'];
+    $authenticated_shared   = ['Logout', 'Notifications', 'Verify Account']; // Pages for any logged-in user
+
+    // --- Build the final list of allowed page titles for the current user ---
+    $allowed_pages = $public_pages;
+
+    if ($is_logged_in) {
+        // Add pages that all logged-in users can see
+        $allowed_pages = array_merge($allowed_pages, $authenticated_shared);
+
+        // Add pages specific to the Supplier role
+        if (in_array('supplier', $user_roles)) {
+            $allowed_pages = array_merge($allowed_pages, $supplier_pages);
+            // Suppliers also need the Wallet, let's add it here specifically
+            $allowed_pages[] = 'My Wallet';
+        }
+        // Add pages specific to the Dropshipper role
+        if (in_array('dropshipper', $user_roles)) {
+            $allowed_pages = array_merge($allowed_pages, $dropshipper_pages);
+        }
+    } else {
+        // User is not logged in, so only show public and logged-out pages
+        $allowed_pages = array_merge($allowed_pages, $logged_out_only_pages);
+    }
+
+    // --- Filter the menu items ---
+    foreach ($sorted_menu_items as $key => $menu_item) {
+        // If the current menu item's title is NOT in our allowed list, remove it.
+        if (!in_array($menu_item->title, $allowed_pages)) {
+            unset($sorted_menu_items[$key]);
+        }
+    }
+    
+    return $sorted_menu_items;
+}
+add_filter('wp_nav_menu_objects', 'taptosell_filter_nav_menu_items', 10, 1);
 ?>
