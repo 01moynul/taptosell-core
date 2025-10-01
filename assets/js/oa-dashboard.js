@@ -1,6 +1,7 @@
+// This is the main jQuery wrapper. All code using the '$' shortcut must be inside this function.
 jQuery(document).ready(function($) {
     
-    // Find the modal and its components
+    // --- Rejection Modal Logic ---
     const reasonModal = $('#tts-rejection-modal');
     const reasonText = $('#tts-rejection-reason-text');
     const cancelBtn = $('#tts-rejection-cancel');
@@ -33,18 +34,18 @@ jQuery(document).ready(function($) {
         window.location.href = finalUrl;
     });
 
-    // When the OA clicks "Cancel" or the close 'x', hide the modal
+    // When the OA clicks "Cancel" or the close 'x' on the rejection modal, hide it
     cancelBtn.on('click', function() { reasonModal.hide(); });
-    $('.tts-modal-close').on('click', function() { reasonModal.hide(); });
+    // This needs to be more specific to avoid closing both modals
+    $('#tts-rejection-modal .tts-modal-close').on('click', function() { reasonModal.hide(); });
     
-});
-
-// --- User Details Modal Logic ---
+    // --- User Details Modal Logic (NOW MOVED INSIDE THE WRAPPER) ---
     const detailsModal = $('#tts-details-modal');
     const detailsContent = $('#tts-details-modal-content');
 
     // When an OA clicks a "Details" button
-    $('.oa-user-details-btn').on('click', function(e) {
+    // We bind the event to the body to ensure it works even if the user list is updated dynamically later.
+    $('body').on('click', '.oa-user-details-btn', function(e) {
         e.preventDefault();
         
         const userId = $(this).data('userid');
@@ -53,9 +54,9 @@ jQuery(document).ready(function($) {
         detailsContent.html('<p>Loading details...</p>');
         detailsModal.show();
 
-        // Prepare the AJAX request
+        // Prepare the AJAX request using the data passed from PHP
         $.ajax({
-            url: tts_oa_dashboard.ajax_url, // URL passed from PHP
+            url: tts_oa_dashboard.ajax_url,
             type: 'POST',
             data: {
                 action: 'taptosell_get_user_details', // Our PHP handler
@@ -68,7 +69,7 @@ jQuery(document).ready(function($) {
                     detailsContent.html(response.data.html);
                 } else {
                     // If there was an error, show the error message
-                    detailsContent.html('<p>Error: ' + response.data.message + '</p>');
+                    detailsContent.html('<p>Error: ' + (response.data.message || 'Unknown error.') + '</p>');
                 }
             },
             error: function() {
@@ -82,3 +83,5 @@ jQuery(document).ready(function($) {
     detailsModal.find('.tts-modal-close').on('click', function() {
         detailsModal.hide();
     });
+
+}); // End of jQuery(document).ready()
