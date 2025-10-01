@@ -77,3 +77,25 @@ function taptosell_protect_supplier_registration_page() {
     }
 }
 add_action('template_redirect', 'taptosell_protect_supplier_registration_page');
+
+/**
+ * --- NEW (Phase 11): Access Control for Operational Admin Dashboard ---
+ * This function ensures that only users with the 'operational_admin' or 'administrator'
+ * role can access the front-end Operational Admin Dashboard page.
+ * It hooks into 'template_redirect' to check on every page load.
+ */
+function taptosell_oa_dashboard_access_control() {
+    // Check if the current page is our "Operational Admin Dashboard"
+    // This checks the page's slug (the part in the URL).
+    if ( is_page('operational-admin-dashboard') ) {
+        
+        // If the user is NOT logged in OR does NOT have the correct role...
+        if ( !is_user_logged_in() || (!current_user_can('administrator') && !current_user_can('operational_admin')) ) {
+            
+            // ...redirect them to the homepage immediately.
+            wp_redirect( home_url() );
+            exit;
+        }
+    }
+}
+add_action( 'template_redirect', 'taptosell_oa_dashboard_access_control' );
