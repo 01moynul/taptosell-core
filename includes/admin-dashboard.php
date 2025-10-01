@@ -67,7 +67,7 @@ function taptosell_render_oa_dashboard_hub() {
 
 /**
  * --- CORRECTED (Phase 11): Renders the User Management view. ---
- * Displays the list of pending users and includes the rejection reason modal.
+ * Adds the user details modal and all functional action buttons.
  */
 function taptosell_render_oa_users_view() {
     ?>
@@ -99,10 +99,8 @@ function taptosell_render_oa_users_view() {
         'orderby'    => 'user_registered',
         'order'      => 'DESC',
     ]);
-
     $pending_users = $pending_users_query->get_results();
 
-    // Check if any pending users were found
     if (!empty($pending_users)) {
         ?>
         <table class="wp-list-table widefat fixed striped">
@@ -130,7 +128,7 @@ function taptosell_render_oa_users_view() {
                         <td><?php echo esc_html(ucfirst(implode(', ', $user->roles))); ?></td>
                         <td><?php echo date('F j, Y', strtotime($user->user_registered)); ?></td>
                         <td>
-                            <a href="#" class="button button-secondary">Details</a> |
+                            <a href="#" class="button button-secondary oa-user-details-btn" data-userid="<?php echo esc_attr($user->ID); ?>">Details</a> |
                             <a href="<?php echo esc_url($approve_link); ?>" class="button button-primary">Approve</a> |
                             <a href="#" class="button button-secondary oa-reject-user-btn" data-reject-url="<?php echo esc_url($reject_link); ?>">Reject</a>
                         </td>
@@ -139,7 +137,7 @@ function taptosell_render_oa_users_view() {
             </tbody>
         </table>
         <?php
-    } else {
+    } else { 
         echo '<p>There are no users pending approval at this time.</p>';
     }
     ?>
@@ -156,8 +154,19 @@ function taptosell_render_oa_users_view() {
             </div>
         </div>
     </div>
+
+    <div id="tts-details-modal" class="taptosell-modal-overlay" style="display: none;">
+        <div class="taptosell-modal-content">
+            <span class="tts-modal-close taptosell-modal-close">&times;</span>
+            <h3 class="taptosell-modal-title">User Registration Details</h3>
+            <div id="tts-details-modal-content" class="taptosell-modal-body">
+                <p>Loading details...</p>
+            </div>
+        </div>
+    </div>
     <?php
 }
+
 /**
  * --- UPDATED (Phase 11): Main shortcode for the Operational Admin Dashboard ---
  * This function now acts as a router, displaying different content based on the 'view' URL parameter.

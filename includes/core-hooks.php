@@ -260,7 +260,8 @@ function taptosell_enqueue_variations_script() {
 add_action('wp_enqueue_scripts', 'taptosell_enqueue_variations_script');
 
 /**
- * --- NEW (Phase 11): Enqueues scripts for the OA Dashboard. ---
+ * --- UPDATED (Phase 11): Enqueues scripts for the OA Dashboard. ---
+ * Now also passes AJAX URL and a security nonce to the script.
  */
 function taptosell_enqueue_oa_dashboard_scripts() {
     // Only load these scripts on our OA Dashboard page
@@ -271,6 +272,16 @@ function taptosell_enqueue_oa_dashboard_scripts() {
             ['jquery'],
             TAPTOSELL_CORE_VERSION,
             true // Load in footer
+        );
+
+        // Pass data from PHP to our JavaScript file
+        wp_localize_script(
+            'taptosell-oa-dashboard',
+            'tts_oa_dashboard', // This will be the JavaScript object name
+            [
+                'ajax_url' => admin_url('admin-ajax.php'),
+                'details_nonce' => wp_create_nonce('oa_view_user_details_nonce'),
+            ]
         );
     }
 }

@@ -404,3 +404,83 @@ function taptosell_handle_oa_user_actions() {
     }
 }
 add_action('template_redirect', 'taptosell_handle_oa_user_actions');
+/**
+ * --- NEW (Phase 11): AJAX handler to fetch and display user details for the OA dashboard. ---
+ */
+function taptosell_get_user_details_ajax_handler() {
+    // Security checks: ensure a user is logged in, has the right permissions, and the request is valid.
+    if ( !is_user_logged_in() || !current_user_can('edit_users') ) {
+        wp_send_json_error(['message' => 'Permission denied.']);
+    }
+    check_ajax_referer('oa_view_user_details_nonce', 'security');
+
+    $user_id = isset($_POST['user_id']) ? intval($_POST['user_id']) : 0;
+    if ($user_id <= 0) {
+        wp_send_json_error(['message' => 'Invalid user ID.']);
+    }
+
+    $user_data = get_userdata($user_id);
+    if (!$user_data) {
+        wp_send_json_error(['message' => 'User not found.']);
+    }
+
+    // --- Start building the HTML to display in the modal ---
+    ob_start();
+    ?>
+    <table class="form-table">
+        <tr>
+            <th>Username</th>
+            <td><?php echo esc_html($user_data->user_login); ?></td>
+        </tr>
+        <tr>
+            <th>Email</th>
+            <td><?php echo esc_html($user_data->user_email); ?></td>
+        </tr>
+        <tr>
+            <th>Role</th>
+            <td><?php echo esc_html(ucfirst(implode(', ', $user_data->roles))); ?></td>
+        </tr>
+    </table>
+    
+    <hr>
+    <h4>Registration Details</h4>
+    <table class="form-table">
+    <?php
+    // Get all meta for this user
+    $meta = get_user_meta($user_id);
+    
+    // Define the fields we want to show
+    $fields_to_display = [
+        'full_name' => 'Full Name',
+        'pic_name' => 'Person in Charge',
+        'company_name' => 'Company Name',
+        'ic_number' => 'IC Number',
+        'mobile_number' => 'Mobile Number',
+        'billing_address_1' => 'Address',
+        'billing_postcode' => 'Postcode',
+        'ssm_document_url' => 'SSM Document',
+        'bank_statement_url' => 'Bank Statement',
+    ];
+
+    foreach ($fields_to_display as $key => $label) {
+        if (isset($meta[$key][0]) && !empty($meta[$key][0])) {
+            $value = $meta[$key][0];
+            // If the field is a URL, make it a clickable link
+            if (strpos($key, '_url') !== false) {
+                $value = '<a href="' . esc_url($value) . '" target="_blank">View Document</a>';
+            } else {
+                $value = esc_html($value);
+            }
+            echo '<tr><th>' . esc_html($label) . '</th><td>' . $value . '</td></tr>';
+        }
+    }
+    ?>
+    </table>
+    <?php
+    $html_output = ob_get_clean();
+    
+    // Send the HTML back to our JavaScript as a success response
+    wp_send_json_success(['html' => $html_output]);
+}
+// Hook our function to WordPress's AJAX actions
+add_action('wp_ajax_taptosell_get_user_details', 'taptosell_get_user_details_ajax_handler');

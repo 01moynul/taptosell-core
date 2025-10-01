@@ -38,3 +38,47 @@ jQuery(document).ready(function($) {
     $('.tts-modal-close').on('click', function() { reasonModal.hide(); });
     
 });
+
+// --- User Details Modal Logic ---
+    const detailsModal = $('#tts-details-modal');
+    const detailsContent = $('#tts-details-modal-content');
+
+    // When an OA clicks a "Details" button
+    $('.oa-user-details-btn').on('click', function(e) {
+        e.preventDefault();
+        
+        const userId = $(this).data('userid');
+        
+        // Show the modal with a loading message
+        detailsContent.html('<p>Loading details...</p>');
+        detailsModal.show();
+
+        // Prepare the AJAX request
+        $.ajax({
+            url: tts_oa_dashboard.ajax_url, // URL passed from PHP
+            type: 'POST',
+            data: {
+                action: 'taptosell_get_user_details', // Our PHP handler
+                security: tts_oa_dashboard.details_nonce, // Security token
+                user_id: userId
+            },
+            success: function(response) {
+                if (response.success) {
+                    // If successful, populate the modal with the HTML from PHP
+                    detailsContent.html(response.data.html);
+                } else {
+                    // If there was an error, show the error message
+                    detailsContent.html('<p>Error: ' + response.data.message + '</p>');
+                }
+            },
+            error: function() {
+                // Handle server errors
+                detailsContent.html('<p>An unexpected error occurred. Please try again.</p>');
+            }
+        });
+    });
+
+    // Make the close button on the details modal work
+    detailsModal.find('.tts-modal-close').on('click', function() {
+        detailsModal.hide();
+    });
