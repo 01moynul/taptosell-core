@@ -260,6 +260,23 @@ function taptosell_enqueue_variations_script() {
 add_action('wp_enqueue_scripts', 'taptosell_enqueue_variations_script');
 
 /**
+ * --- NEW (Phase 11): Enqueues scripts for the OA Dashboard. ---
+ */
+function taptosell_enqueue_oa_dashboard_scripts() {
+    // Only load these scripts on our OA Dashboard page
+    if ( is_page('operational-admin-dashboard') ) {
+        wp_enqueue_script(
+            'taptosell-oa-dashboard',
+            TAPTOSELL_CORE_URL . 'assets/js/oa-dashboard.js',
+            ['jquery'],
+            TAPTOSELL_CORE_VERSION,
+            true // Load in footer
+        );
+    }
+}
+add_action('wp_enqueue_scripts', 'taptosell_enqueue_oa_dashboard_scripts');
+
+/**
  * --- REVISED: Dynamically Filter Menu Items Based on User Role ---
  * This function uses a "whitelist" approach to show only the menu items
  * appropriate for the current user's role and login status.

@@ -66,12 +66,29 @@ function taptosell_render_oa_dashboard_hub() {
 }
 
 /**
- * --- UPDATED (Phase 11): Renders the User Management view. ---
- * This now fetches and displays a list of users pending approval.
+ * --- CORRECTED (Phase 11): Renders the User Management view. ---
+ * Displays the list of pending users and includes the rejection reason modal.
  */
 function taptosell_render_oa_users_view() {
     ?>
     <h3>Manage Pending Users</h3>
+
+    <?php
+    // --- Display success/error messages ---
+    if (isset($_GET['message'])) {
+        $message_type = sanitize_key($_GET['message']);
+        $notice_text = '';
+        if ($message_type === 'user_approved') {
+            $notice_text = 'User approved successfully.';
+        } elseif ($message_type === 'user_rejected') {
+            $notice_text = 'User rejected and deleted successfully.';
+        }
+        if ($notice_text) {
+            echo '<div class="taptosell-notice success"><p>' . esc_html($notice_text) . '</p></div>';
+        }
+    }
+    ?>
+
     <p>The following users have registered and are awaiting account approval.</p>
 
     <?php
@@ -99,15 +116,23 @@ function taptosell_render_oa_users_view() {
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($pending_users as $user) : ?>
+                <?php foreach ($pending_users as $user) : 
+                    $dashboard_url = get_permalink(get_the_ID());
+                    $approve_nonce = wp_create_nonce('oa_approve_user_' . $user->ID);
+                    $reject_nonce = wp_create_nonce('oa_reject_user_' . $user->ID);
+                    
+                    $approve_link = add_query_arg(['view' => 'users', 'action' => 'approve_user', 'user_id' => $user->ID, '_wpnonce' => $approve_nonce], $dashboard_url);
+                    $reject_link = add_query_arg(['view' => 'users', 'action' => 'reject_user', 'user_id' => $user->ID, '_wpnonce' => $reject_nonce], $dashboard_url);
+                ?>
                     <tr>
                         <td><strong><?php echo esc_html($user->user_login); ?></strong></td>
                         <td><?php echo esc_html($user->user_email); ?></td>
                         <td><?php echo esc_html(ucfirst(implode(', ', $user->roles))); ?></td>
                         <td><?php echo date('F j, Y', strtotime($user->user_registered)); ?></td>
                         <td>
-                            <a href="#" class="button button-primary">Approve</a>
-                            <a href="#" class="button button-secondary">Reject</a>
+                            <a href="#" class="button button-secondary">Details</a> |
+                            <a href="<?php echo esc_url($approve_link); ?>" class="button button-primary">Approve</a> |
+                            <a href="#" class="button button-secondary oa-reject-user-btn" data-reject-url="<?php echo esc_url($reject_link); ?>">Reject</a>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -115,9 +140,23 @@ function taptosell_render_oa_users_view() {
         </table>
         <?php
     } else {
-        // If no pending users are found, display a message.
         echo '<p>There are no users pending approval at this time.</p>';
     }
+    ?>
+
+    <div id="tts-rejection-modal" class="taptosell-modal-overlay" style="display: none;">
+        <div class="taptosell-modal-content">
+            <span class="tts-modal-close taptosell-modal-close">&times;</span>
+            <h3 class="taptosell-modal-title">Rejection Reason</h3>
+            <p>Please provide a reason for rejecting this user. This will be sent to them in an email.</p>
+            <textarea id="tts-rejection-reason-text" style="width: 100%; height: 100px;" placeholder="e.g., Incomplete information provided..."></textarea>
+            <div style="margin-top: 20px; text-align: right;">
+                <button type="button" id="tts-rejection-cancel" class="button button-secondary">Cancel</button>
+                <button type="button" id="tts-rejection-confirm" class="button button-primary" style="margin-left: 10px;">Confirm Rejection</button>
+            </div>
+        </div>
+    </div>
+    <?php
 }
 /**
  * --- UPDATED (Phase 11): Main shortcode for the Operational Admin Dashboard ---

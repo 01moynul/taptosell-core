@@ -358,3 +358,49 @@ function taptosell_handle_price_request_actions() {
     }
 }
 add_action('admin_init', 'taptosell_handle_price_request_actions');
+
+/**
+ * --- UPDATED (Phase 11): Handles user approval/rejection from the front-end OA Dashboard. ---
+ * Now includes the rejection reason in the notification email.
+ */
+function taptosell_handle_oa_user_actions() {
+    if ( !isset($_GET['action']) || !is_page('operational-admin-dashboard') ) { return; }
+    if ( !current_user_can('edit_users') ) { return; }
+
+    $action = sanitize_key($_GET['action']);
+    $user_id = isset($_GET['user_id']) ? (int)$_GET['user_id'] : 0;
+    
+    $redirect_url = add_query_arg('view', 'users', get_permalink(get_the_ID()));
+
+    // --- Handle Approve Action ---
+    if ($action === 'approve_user' && $user_id > 0) {
+        check_admin_referer('oa_approve_user_' . $user_id);
+        update_user_meta($user_id, '_account_status', 'approved');
+        $user_info = get_userdata($user_id);
+        wp_mail($user_info->user_email, 'Your Account has been Approved', 'Congratulations! Your TapToSell account has been approved. You can now log in and start using the platform.');
+        wp_redirect(add_query_arg('message', 'user_approved', $redirect_url));
+        exit;
+    }
+
+    // --- Handle Reject Action ---
+    if ($action === 'reject_user' && $user_id > 0) {
+        check_admin_referer('oa_reject_user_' . $user_id);
+        require_once(ABSPATH.'wp-admin/includes/user.php');
+        
+        $user_info = get_userdata($user_id);
+        $user_email = $user_info->user_email;
+        
+        // --- NEW: Get the rejection reason from the URL ---
+        $rejection_reason = isset($_GET['reason']) ? sanitize_textarea_field(urldecode($_GET['reason'])) : '';
+        $email_message = "We regret to inform you that your application for a TapToSell account has been rejected at this time.";
+        if (!empty($rejection_reason)) {
+            $email_message .= "\n\nReason: " . $rejection_reason;
+        }
+
+        wp_delete_user($user_id);
+        wp_mail($user_email, 'Your Account Application', $email_message);
+        wp_redirect(add_query_arg('message', 'user_rejected', $redirect_url));
+        exit;
+    }
+}
+add_action('template_redirect', 'taptosell_handle_oa_user_actions');
