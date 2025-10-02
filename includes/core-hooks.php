@@ -5,7 +5,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Create/update all custom roles, capabilities, and database tables on plugin activation.
+ * --- UPDATED: Create/update all custom roles and capabilities on plugin activation. ---
+ * Now grants full product management capabilities to the Operational Admin.
  */
 function taptosell_add_custom_roles() {
     // --- Role and capability definitions ---
@@ -21,6 +22,16 @@ function taptosell_add_custom_roles() {
     $op_admin_caps = get_role('editor')->capabilities;
     $op_admin_caps['list_users'] = true; $op_admin_caps['edit_users'] = true; $op_admin_caps['remove_users'] = true;
     $op_admin_caps['create_users'] = true; $op_admin_caps['promote_users'] = true;
+    
+    // --- NEW: Add capabilities for managing our 'product' CPT ---
+    $op_admin_caps['publish_products'] = true;
+    $op_admin_caps['edit_products'] = true;
+    $op_admin_caps['edit_others_products'] = true;
+    $op_admin_caps['read_private_products'] = true;
+    $op_admin_caps['delete_products'] = true;
+    $op_admin_caps['delete_others_products'] = true;
+    // --- End of new capabilities ---
+
     $op_admin_caps = array_merge($op_admin_caps, $custom_caps);
     add_role('operational_admin', 'Operational Admin', $op_admin_caps);
     
@@ -38,17 +49,7 @@ function taptosell_add_custom_roles() {
 
     // Table for Dropshipper SRPs and Product Links
     $srp_table_name = $wpdb->prefix . 'taptosell_dropshipper_products';
-    $sql_srp = "CREATE TABLE $srp_table_name (
-        id mediumint(9) NOT NULL AUTO_INCREMENT,
-        dropshipper_id bigint(20) UNSIGNED NOT NULL,
-        taptosell_product_id bigint(20) UNSIGNED NOT NULL,
-        marketplace_product_id bigint(20) UNSIGNED,
-        marketplace varchar(50),
-        srp decimal(10,2),
-        date_added datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
-        PRIMARY KEY  (id),
-        UNIQUE KEY dropshipper_product (dropshipper_id, taptosell_product_id)
-    ) $charset_collate;";
+    $sql_srp = "CREATE TABLE $srp_table_name ( id mediumint(9) NOT NULL AUTO_INCREMENT, dropshipper_id bigint(20) UNSIGNED NOT NULL, taptosell_product_id bigint(20) UNSIGNED NOT NULL, marketplace_product_id bigint(20) UNSIGNED, marketplace varchar(50), srp decimal(10,2), date_added datetime DEFAULT '0000-00-00 00:00:00' NOT NULL, PRIMARY KEY  (id), UNIQUE KEY dropshipper_product (dropshipper_id, taptosell_product_id) ) $charset_collate;";
     dbDelta($sql_srp);
 
     // Wallet Transactions Table
@@ -58,31 +59,12 @@ function taptosell_add_custom_roles() {
 
     // Table for Price Change Requests
     $price_change_table_name = $wpdb->prefix . 'taptosell_price_changes';
-    $sql_price_changes = "CREATE TABLE $price_change_table_name (
-        id mediumint(9) NOT NULL AUTO_INCREMENT,
-        product_id bigint(20) UNSIGNED NOT NULL,
-        supplier_id bigint(20) UNSIGNED NOT NULL,
-        old_price decimal(10,2) NOT NULL,
-        new_price decimal(10,2) NOT NULL,
-        request_date datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
-        status varchar(20) DEFAULT 'pending' NOT NULL,
-        PRIMARY KEY  (id),
-        KEY product_id (product_id)
-    ) $charset_collate;";
+    $sql_price_changes = "CREATE TABLE $price_change_table_name ( id mediumint(9) NOT NULL AUTO_INCREMENT, product_id bigint(20) UNSIGNED NOT NULL, supplier_id bigint(20) UNSIGNED NOT NULL, old_price decimal(10,2) NOT NULL, new_price decimal(10,2) NOT NULL, request_date datetime DEFAULT '0000-00-00 00:00:00' NOT NULL, status varchar(20) DEFAULT 'pending' NOT NULL, PRIMARY KEY  (id), KEY product_id (product_id) ) $charset_collate;";
     dbDelta($sql_price_changes);
 
     // Table for Notifications
     $notifications_table_name = $wpdb->prefix . 'taptosell_notifications';
-    $sql_notifications = "CREATE TABLE $notifications_table_name (
-        id bigint(20) NOT NULL AUTO_INCREMENT,
-        user_id bigint(20) UNSIGNED NOT NULL,
-        message text NOT NULL,
-        link varchar(255) DEFAULT '' NOT NULL,
-        is_read tinyint(1) DEFAULT 0 NOT NULL,
-        created_date datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
-        PRIMARY KEY  (id),
-        KEY user_id (user_id)
-    ) $charset_collate;";
+    $sql_notifications = "CREATE TABLE $notifications_table_name ( id bigint(20) NOT NULL AUTO_INCREMENT, user_id bigint(20) UNSIGNED NOT NULL, message text NOT NULL, link varchar(255) DEFAULT '' NOT NULL, is_read tinyint(1) DEFAULT 0 NOT NULL, created_date datetime DEFAULT '0000-00-00 00:00:00' NOT NULL, PRIMARY KEY  (id), KEY user_id (user_id) ) $charset_collate;";
     dbDelta($sql_notifications);
 }
 register_activation_hook( TAPTOSELL_CORE_PATH . 'taptosell-core.php', 'taptosell_add_custom_roles' );

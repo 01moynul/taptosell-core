@@ -112,17 +112,19 @@ function taptosell_add_dashboard_widgets() {
 add_action('wp_dashboard_setup', 'taptosell_add_dashboard_widgets');
 
 /**
- * The display function for the custom dashboard widget.
+ * --- CORRECTED: The display function for the custom dashboard widget. ---
+ * Now counts 'pending' products, not 'draft'.
  */
 function taptosell_pending_tasks_widget_display() {
     // 1. Get the count of pending products
     $pending_products_count = 0;
     $product_counts = wp_count_posts('product');
-    if (isset($product_counts->draft)) {
-        $pending_products_count = $product_counts->draft;
+    // --- CORRECTED LOGIC: Count 'pending' status. ---
+    if (isset($product_counts->pending)) {
+        $pending_products_count = $product_counts->pending;
     }
     // Create the link to the product approval page
-    $products_link = admin_url('edit.php?post_status=draft&post_type=product');
+    $products_link = admin_url('edit.php?post_status=pending&post_type=product');
 
     // 2. Get the count of pending users
     $user_query = new WP_User_Query([
@@ -138,7 +140,6 @@ function taptosell_pending_tasks_widget_display() {
     
     echo '<li>';
     echo sprintf(
-        // Use _n() to handle plural vs. singular text correctly
         _n(
             'There is <a href="%s"><strong>%d new product</strong></a> pending approval.',
             'There are <a href="%s"><strong>%d new products</strong></a> pending approval.',

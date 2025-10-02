@@ -22,15 +22,16 @@ add_filter('manage_product_posts_columns', 'taptosell_add_product_actions_column
 
 
 /**
- * Displays the content for the custom "Actions" column.
+ * --- CORRECTED: Displays the content for the custom "Actions" column. ---
+ * Now shows actions for 'pending' products, not 'draft'.
  */
 function taptosell_display_product_actions($column, $post_id) {
     // Only add links to our custom column.
     if ($column === 'approval_actions') {
         $post_status = get_post_status($post_id);
         
-        // Only show actions for products that are drafts.
-        if ($post_status === 'draft') {
+        // --- CORRECTED LOGIC: Only show actions for products that are pending review. ---
+        if ($post_status === 'pending') {
             // Create a security nonce.
             $nonce = wp_create_nonce('taptosell_product_action_' . $post_id);
             
@@ -484,3 +485,53 @@ function taptosell_get_user_details_ajax_handler() {
 }
 // Hook our function to WordPress's AJAX actions
 add_action('wp_ajax_taptosell_get_user_details', 'taptosell_get_user_details_ajax_handler');
+
+/**
+ * --- CORRECTED (Phase 11): Handles product approval from the OA Dashboard. ---
+ * Uses a more specific action name to prevent nonce conflicts.
+ */
+function taptosell_handle_oa_product_approval() {
+    // Check if a product ID and a nonce were provided in the URL.
+    if ( !isset($_GET['product_id']) || !isset($_GET['_wpnonce']) ) {
+        wp_die('Missing required parameters.');
+    }
+
+    $product_id = intval($_GET['product_id']);
+    
+    // Verify the nonce. This is the crucial security check.
+    if ( !wp_verify_nonce($_GET['_wpnonce'], 'oa_approve_product_' . $product_id) ) {
+        wp_die('Security check failed. Please go back and try again.');
+    }
+
+    // Check if the current user has the authority to publish products.
+    if ( !current_user_can('publish_products') ) {
+        wp_die('You do not have sufficient permissions to approve products.');
+    }
+
+    if ( $product_id > 0 ) {
+        // Update the product's status to 'publish'.
+        wp_update_post([
+            'ID'          => $product_id,
+            'post_status' => 'publish',
+        ]);
+        
+        // Notify the supplier that their product was approved.
+        $supplier_id = get_post_field('post_author', $product_id);
+        $product_title = get_the_title($product_id);
+        $dashboard_page = get_page_by_title('Supplier Dashboard');
+        $dashboard_link = $dashboard_page ? get_permalink($dashboard_page->ID) : '';
+        $message = 'Congratulations! Your product "' . esc_html($product_title) . '" has been approved.';
+        taptosell_add_notification($supplier_id, $message, $dashboard_link);
+    }
+
+    // Redirect back to the product management dashboard with a success message.
+    $redirect_url = add_query_arg([
+        'view' => 'products',
+        'message' => 'product_approved'
+    ], get_permalink(get_page_by_path('operational-admin-dashboard')));
+    
+    wp_redirect($redirect_url);
+    exit;
+}
+// CORRECTED HOOK: The action name is now more specific.
+add_action('admin_post_taptosell_oa_approve_product', 'taptosell_handle_oa_product_approval');

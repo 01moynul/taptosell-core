@@ -282,24 +282,21 @@ function taptosell_oa_dashboard_shortcode() {
 add_shortcode('oa_dashboard', 'taptosell_oa_dashboard_shortcode');
 
 /**
- * --- NEW (Phase 11): Renders the Product Management view for the OA dashboard. ---
- * Displays a list of all products with a 'pending' status.
+ * --- Renders the Product Management view. ---
+ * CORRECTED: The "Approve" button link now uses the more specific action name.
  */
 function taptosell_render_oa_products_view() {
     ?>
     <h3>Manage Pending Products</h3>
+    <?php
+    if (isset($_GET['message']) && $_GET['message'] === 'product_approved') {
+        echo '<div class="taptosell-notice success"><p>Product approved and published successfully.</p></div>';
+    }
+    ?>
     <p>The following products have been submitted by suppliers and are awaiting approval.</p>
     <?php
 
-    // Arguments to query for pending products
-    $args = [
-        'post_type'      => 'product',
-        'post_status'    => 'pending', // IMPORTANT: Only fetch products needing review
-        'posts_per_page' => 20, // Paginate for performance
-        'orderby'        => 'date',
-        'order'          => 'DESC',
-    ];
-
+    $args = ['post_type' => 'product', 'post_status' => 'pending', 'posts_per_page' => 20, 'orderby' => 'date', 'order' => 'DESC'];
     $pending_products_query = new WP_Query($args);
 
     if ($pending_products_query->have_posts()) {
@@ -317,8 +314,11 @@ function taptosell_render_oa_products_view() {
             <tbody>
                 <?php while ($pending_products_query->have_posts()) : $pending_products_query->the_post(); 
                     $product_id = get_the_ID();
-                    $supplier_id = get_the_author_meta('ID');
-                    $supplier = get_user_by('id', $supplier_id);
+                    $supplier = get_user_by('id', get_the_author_meta('ID'));
+
+                    // CORRECTED LINK: Create the secure URL with the new, specific action name.
+                    $approve_nonce = wp_create_nonce('oa_approve_product_' . $product_id);
+                    $approve_link = admin_url('admin-post.php?action=taptosell_oa_approve_product&product_id=' . $product_id . '&_wpnonce=' . $approve_nonce);
                 ?>
                     <tr>
                         <td>
@@ -333,7 +333,7 @@ function taptosell_render_oa_products_view() {
                         <td><?php echo get_the_date(); ?></td>
                         <td>
                             <a href="<?php echo get_edit_post_link($product_id); ?>" target="_blank" class="button button-secondary">View/Edit</a> |
-                            <a href="#" class="button button-primary">Approve</a> |
+                            <a href="<?php echo esc_url($approve_link); ?>" class="button button-primary">Approve</a> |
                             <a href="#" class="button button-secondary">Reject</a>
                         </td>
                     </tr>
@@ -341,7 +341,7 @@ function taptosell_render_oa_products_view() {
             </tbody>
         </table>
         <?php
-        wp_reset_postdata(); // Restore original post data
+        wp_reset_postdata();
     } else {
         echo '<p>There are no products pending approval at this time.</p>';
     }
