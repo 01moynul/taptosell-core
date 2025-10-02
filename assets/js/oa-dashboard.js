@@ -84,4 +84,41 @@ jQuery(document).ready(function($) {
         detailsModal.hide();
     });
 
+    // --- Product Rejection Modal Logic ---
+    const productRejectModal = $('#tts-product-rejection-modal');
+    const productReasonText = $('#tts-product-rejection-reason-text');
+    const productConfirmBtn = $('#tts-product-rejection-confirm');
+
+    // When an OA clicks a product reject button
+    $('body').on('click', '.oa-product-reject-btn', function(e) {
+        e.preventDefault();
+        
+        // Get the base rejection URL from the button's data attribute
+        const rejectionUrl = $(this).data('reject-url');
+        
+        // Store this URL on the confirm button
+        productConfirmBtn.data('base-url', rejectionUrl);
+        
+        // Clear previous reason and show the modal
+        productReasonText.val('');
+        productRejectModal.show();
+    });
+
+    // When the OA clicks the "Confirm Rejection" button in the product modal
+    productConfirmBtn.on('click', function() {
+        const baseUrl = $(this).data('base-url');
+        const reason = productReasonText.val();
+        
+        // Add the reason to the URL as a new parameter
+        const finalUrl = baseUrl + '&reason=' + encodeURIComponent(reason);
+        
+        // Navigate to the final URL to process the rejection
+        window.location.href = finalUrl;
+    });
+
+    // Close functionality for the product rejection modal
+    productRejectModal.find('.tts-modal-close, .tts-modal-cancel').on('click', function() {
+        productRejectModal.hide();
+    });
+
 }); // End of jQuery(document).ready()

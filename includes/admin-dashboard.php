@@ -283,14 +283,19 @@ add_shortcode('oa_dashboard', 'taptosell_oa_dashboard_shortcode');
 
 /**
  * --- Renders the Product Management view. ---
- * CORRECTED: The "Approve" button link now uses the more specific action name.
+ * UPDATED: Adds rejection modal and makes the "Reject" button functional.
  */
 function taptosell_render_oa_products_view() {
     ?>
     <h3>Manage Pending Products</h3>
     <?php
-    if (isset($_GET['message']) && $_GET['message'] === 'product_approved') {
-        echo '<div class="taptosell-notice success"><p>Product approved and published successfully.</p></div>';
+    // --- Display success/error messages ---
+    if (isset($_GET['message'])) {
+        if ($_GET['message'] === 'product_approved') {
+            echo '<div class="taptosell-notice success"><p>Product approved and published successfully.</p></div>';
+        } elseif ($_GET['message'] === 'product_rejected') {
+            echo '<div class="taptosell-notice success"><p>Product rejected and returned to supplier drafts.</p></div>';
+        }
     }
     ?>
     <p>The following products have been submitted by suppliers and are awaiting approval.</p>
@@ -316,9 +321,12 @@ function taptosell_render_oa_products_view() {
                     $product_id = get_the_ID();
                     $supplier = get_user_by('id', get_the_author_meta('ID'));
 
-                    // CORRECTED LINK: Create the secure URL with the new, specific action name.
+                    // Create secure URLs for approve and reject actions
                     $approve_nonce = wp_create_nonce('oa_approve_product_' . $product_id);
                     $approve_link = admin_url('admin-post.php?action=taptosell_oa_approve_product&product_id=' . $product_id . '&_wpnonce=' . $approve_nonce);
+
+                    $reject_nonce = wp_create_nonce('oa_reject_product_' . $product_id);
+                    $reject_link = admin_url('admin-post.php?action=taptosell_oa_reject_product&product_id=' . $product_id . '&_wpnonce=' . $reject_nonce);
                 ?>
                     <tr>
                         <td>
@@ -334,7 +342,7 @@ function taptosell_render_oa_products_view() {
                         <td>
                             <a href="<?php echo get_edit_post_link($product_id); ?>" target="_blank" class="button button-secondary">View/Edit</a> |
                             <a href="<?php echo esc_url($approve_link); ?>" class="button button-primary">Approve</a> |
-                            <a href="#" class="button button-secondary">Reject</a>
+                            <a href="#" class="button button-secondary oa-product-reject-btn" data-reject-url="<?php echo esc_url($reject_link); ?>">Reject</a>
                         </td>
                     </tr>
                 <?php endwhile; ?>
@@ -345,4 +353,19 @@ function taptosell_render_oa_products_view() {
     } else {
         echo '<p>There are no products pending approval at this time.</p>';
     }
+    ?>
+
+    <div id="tts-product-rejection-modal" class="taptosell-modal-overlay" style="display: none;">
+        <div class="taptosell-modal-content">
+            <span class="tts-modal-close">&times;</span>
+            <h3 class="taptosell-modal-title">Product Rejection Reason</h3>
+            <p>Please provide a reason for rejecting this product. This will be sent to the supplier.</p>
+            <textarea id="tts-product-rejection-reason-text" style="width: 100%; height: 100px;" placeholder="e.g., Product images are low quality..."></textarea>
+            <div style="margin-top: 20px; text-align: right;">
+                <button type="button" class="button button-secondary tts-modal-cancel">Cancel</button>
+                <button type="button" id="tts-product-rejection-confirm" class="button button-primary" style="margin-left: 10px;">Confirm Rejection</button>
+            </div>
+        </div>
+    </div>
+    <?php
 }

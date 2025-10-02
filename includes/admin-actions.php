@@ -535,3 +535,62 @@ function taptosell_handle_oa_product_approval() {
 }
 // CORRECTED HOOK: The action name is now more specific.
 add_action('admin_post_taptosell_oa_approve_product', 'taptosell_handle_oa_product_approval');
+
+/**
+ * --- CORRECTED (Phase 11): Handles product rejection from the OA Dashboard. ---
+ * Now correctly sets the post status to 'rejected'.
+ */
+function taptosell_handle_oa_product_rejection() {
+    // Security and permission checks
+    if ( !isset($_GET['product_id']) || !isset($_GET['_wpnonce']) || !isset($_GET['reason']) ) {
+        wp_die('Missing required parameters.');
+    }
+    if ( !current_user_can('edit_others_products') ) {
+        wp_die('You do not have sufficient permissions to reject products.');
+    }
+
+    $product_id = intval($_GET['product_id']);
+    
+    // Verify the nonce security token
+    if ( !wp_verify_nonce($_GET['_wpnonce'], 'oa_reject_product_' . $product_id) ) {
+        wp_die('Security check failed. Please go back and try again.');
+    }
+
+    // Sanitize the rejection reason
+    $rejection_reason = sanitize_textarea_field(urldecode($_GET['reason']));
+
+    if ( $product_id > 0 ) {
+        // --- CORRECTED LOGIC: Set the product status to 'rejected'. ---
+        wp_update_post([
+            'ID'          => $product_id,
+            'post_status' => 'rejected',
+        ]);
+        
+        // Save the rejection reason as post meta for the supplier to see.
+        if (!empty($rejection_reason)) {
+            update_post_meta($product_id, '_rejection_reason', $rejection_reason);
+        }
+
+        // Notify the supplier that their product was rejected, including the reason.
+        $supplier_id = get_post_field('post_author', $product_id);
+        $product_title = get_the_title($product_id);
+        $dashboard_page = get_page_by_title('Supplier Dashboard');
+        $dashboard_link = $dashboard_page ? get_permalink($dashboard_page->ID) : '';
+        $message = 'Your product "' . esc_html($product_title) . '" was not approved.'; // Simplified message
+        if (!empty($rejection_reason)) {
+            $message .= ' Reason: ' . esc_html($rejection_reason);
+        }
+        taptosell_add_notification($supplier_id, $message, $dashboard_link);
+    }
+
+    // Redirect back to the product management dashboard with a success message.
+    $redirect_url = add_query_arg([
+        'view' => 'products',
+        'message' => 'product_rejected'
+    ], get_permalink(get_page_by_path('operational-admin-dashboard')));
+    
+    wp_redirect($redirect_url);
+    exit;
+}
+// Hook the new handler to its action.
+add_action('admin_post_taptosell_oa_reject_product', 'taptosell_handle_oa_product_rejection');
