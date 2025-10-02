@@ -66,15 +66,20 @@ function taptosell_render_oa_dashboard_hub() {
 }
 
 /**
- * --- CORRECTED (Phase 11): Renders the User Management view. ---
- * Adds the user details modal and all functional action buttons.
+ * --- UPGRADED (Phase 11): Renders the User Management view with search and filtering. ---
+ * Allows searching all users (excluding admins) and filtering by account status.
  */
 function taptosell_render_oa_users_view() {
+    // Get the search and filter values from the URL, if they exist
+    $search_query = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
+    $status_filter = isset($_GET['status']) ? sanitize_key($_GET['status']) : 'pending'; // Default to 'pending'
+
+    $dashboard_url = get_permalink(get_the_ID());
     ?>
-    <h3>Manage Pending Users</h3>
+    <h3>User Management</h3>
 
     <?php
-    // --- Display success/error messages ---
+    // --- Display any success/error messages from user actions ---
     if (isset($_GET['message'])) {
         $message_type = sanitize_key($_GET['message']);
         $notice_text = '';
@@ -89,19 +94,51 @@ function taptosell_render_oa_users_view() {
     }
     ?>
 
-    <p>The following users have registered and are awaiting account approval.</p>
+    <form method="get" action="<?php echo esc_url($dashboard_url); ?>">
+        <input type="hidden" name="view" value="users">
+        <p class="search-box">
+            <label class="screen-reader-text" for="user-search-input">Search Users:</label>
+            <input type="search" id="user-search-input" name="s" value="<?php echo esc_attr($search_query); ?>" placeholder="Search by username, email...">
+            
+            <select name="status" id="status-filter">
+                <option value="all" <?php selected($status_filter, 'all'); ?>>All Statuses</option>
+                <option value="pending" <?php selected($status_filter, 'pending'); ?>>Pending Approval</option>
+                <option value="approved" <?php selected($status_filter, 'approved'); ?>>Approved</option>
+            </select>
 
+            <input type="submit" id="search-submit" class="button" value="Filter Users">
+        </p>
+    </form>
+    
     <?php
-    // Query the database for all users with the '_account_status' meta key set to 'pending'
-    $pending_users_query = new WP_User_Query([
-        'meta_key'   => '_account_status',
-        'meta_value' => 'pending',
-        'orderby'    => 'user_registered',
-        'order'      => 'DESC',
-    ]);
-    $pending_users = $pending_users_query->get_results();
+    // --- Build the user query arguments ---
+    $query_args = [
+        'orderby'      => 'user_registered',
+        'order'        => 'DESC',
+        'role__not_in' => ['administrator', 'operational_admin'] // IMPORTANT: Exclude admins
+    ];
 
-    if (!empty($pending_users)) {
+    // Add search parameter if a search query exists
+    if (!empty($search_query)) {
+        $query_args['search'] = '*' . esc_attr($search_query) . '*';
+        $query_args['search_columns'] = ['user_login', 'user_email', 'display_name'];
+    }
+
+    // Add status filter if a specific status is selected
+    if (!empty($status_filter) && $status_filter !== 'all') {
+        $query_args['meta_query'] = [
+            [
+                'key'     => '_account_status',
+                'value'   => $status_filter,
+                'compare' => '='
+            ]
+        ];
+    }
+    
+    $users_query = new WP_User_Query($query_args);
+    $found_users = $users_query->get_results();
+
+    if (!empty($found_users)) {
         ?>
         <table class="wp-list-table widefat fixed striped">
             <thead>
@@ -110,17 +147,20 @@ function taptosell_render_oa_users_view() {
                     <th>Email</th>
                     <th>Role</th>
                     <th>Registered</th>
+                    <th>Status</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($pending_users as $user) : 
-                    $dashboard_url = get_permalink(get_the_ID());
+                <?php foreach ($found_users as $user) : 
+                    $account_status = get_user_meta($user->ID, '_account_status', true);
+                    
                     $approve_nonce = wp_create_nonce('oa_approve_user_' . $user->ID);
                     $reject_nonce = wp_create_nonce('oa_reject_user_' . $user->ID);
                     
-                    $approve_link = add_query_arg(['view' => 'users', 'action' => 'approve_user', 'user_id' => $user->ID, '_wpnonce' => $approve_nonce], $dashboard_url);
-                    $reject_link = add_query_arg(['view' => 'users', 'action' => 'reject_user', 'user_id' => $user->ID, '_wpnonce' => $reject_nonce], $dashboard_url);
+                    // Build the action links, including the current search/filter state
+                    $approve_link = add_query_arg(['view' => 'users', 's' => $search_query, 'status' => $status_filter, 'action' => 'approve_user', 'user_id' => $user->ID, '_wpnonce' => $approve_nonce], $dashboard_url);
+                    $reject_link = add_query_arg(['view' => 'users', 's' => $search_query, 'status' => $status_filter, 'action' => 'reject_user', 'user_id' => $user->ID, '_wpnonce' => $reject_nonce], $dashboard_url);
                 ?>
                     <tr>
                         <td><strong><?php echo esc_html($user->user_login); ?></strong></td>
@@ -128,9 +168,20 @@ function taptosell_render_oa_users_view() {
                         <td><?php echo esc_html(ucfirst(implode(', ', $user->roles))); ?></td>
                         <td><?php echo date('F j, Y', strtotime($user->user_registered)); ?></td>
                         <td>
-                            <a href="#" class="button button-secondary oa-user-details-btn" data-userid="<?php echo esc_attr($user->ID); ?>">Details</a> |
-                            <a href="<?php echo esc_url($approve_link); ?>" class="button button-primary">Approve</a> |
-                            <a href="#" class="button button-secondary oa-reject-user-btn" data-reject-url="<?php echo esc_url($reject_link); ?>">Reject</a>
+                            <?php if ($account_status === 'pending') : ?>
+                                <span style="color: #ffb900; font-weight: bold;">Pending</span>
+                            <?php elseif ($account_status === 'approved') : ?>
+                                <span style="color: green; font-weight: bold;">Approved</span>
+                            <?php else: ?>
+                                <span style="color: #a00; font-weight: bold;">Unverified</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <a href="#" class="button button-secondary oa-user-details-btn" data-userid="<?php echo esc_attr($user->ID); ?>">Details</a>
+                            <?php if ($account_status === 'pending') : ?>
+                                | <a href="<?php echo esc_url($approve_link); ?>" class="button button-primary">Approve</a>
+                                | <a href="#" class="button button-secondary oa-reject-user-btn" data-reject-url="<?php echo esc_url($reject_link); ?>">Reject</a>
+                            <?php endif; ?>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -138,7 +189,7 @@ function taptosell_render_oa_users_view() {
         </table>
         <?php
     } else { 
-        echo '<p>There are no users pending approval at this time.</p>';
+        echo '<p>No users found matching your criteria.</p>';
     }
     ?>
 
@@ -211,8 +262,7 @@ function taptosell_oa_dashboard_shortcode() {
                     taptosell_render_oa_users_view();
                     break;
                 case 'products':
-                    // Placeholder for now
-                    echo '<h3>Manage Pending Products</h3><p>The product approval list will be here.</p>';
+                    taptosell_render_oa_products_view();
                     break;
                 case 'withdrawals':
                      // Placeholder for now
@@ -230,3 +280,69 @@ function taptosell_oa_dashboard_shortcode() {
     return ob_get_clean();
 }
 add_shortcode('oa_dashboard', 'taptosell_oa_dashboard_shortcode');
+
+/**
+ * --- NEW (Phase 11): Renders the Product Management view for the OA dashboard. ---
+ * Displays a list of all products with a 'pending' status.
+ */
+function taptosell_render_oa_products_view() {
+    ?>
+    <h3>Manage Pending Products</h3>
+    <p>The following products have been submitted by suppliers and are awaiting approval.</p>
+    <?php
+
+    // Arguments to query for pending products
+    $args = [
+        'post_type'      => 'product',
+        'post_status'    => 'pending', // IMPORTANT: Only fetch products needing review
+        'posts_per_page' => 20, // Paginate for performance
+        'orderby'        => 'date',
+        'order'          => 'DESC',
+    ];
+
+    $pending_products_query = new WP_Query($args);
+
+    if ($pending_products_query->have_posts()) {
+        ?>
+        <table class="wp-list-table widefat fixed striped">
+            <thead>
+                <tr>
+                    <th style="width: 70px;">Image</th>
+                    <th>Product Name</th>
+                    <th>Supplier</th>
+                    <th>Submitted On</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php while ($pending_products_query->have_posts()) : $pending_products_query->the_post(); 
+                    $product_id = get_the_ID();
+                    $supplier_id = get_the_author_meta('ID');
+                    $supplier = get_user_by('id', $supplier_id);
+                ?>
+                    <tr>
+                        <td>
+                            <?php if (has_post_thumbnail()) : ?>
+                                <img src="<?php the_post_thumbnail_url([60, 60]); ?>" alt="<?php the_title(); ?>" style="width: 60px; height: 60px; object-fit: cover;">
+                            <?php else: ?>
+                                <span class="dashicons dashicons-format-image"></span>
+                            <?php endif; ?>
+                        </td>
+                        <td><strong><?php the_title(); ?></strong></td>
+                        <td><?php echo esc_html($supplier->display_name); ?></td>
+                        <td><?php echo get_the_date(); ?></td>
+                        <td>
+                            <a href="<?php echo get_edit_post_link($product_id); ?>" target="_blank" class="button button-secondary">View/Edit</a> |
+                            <a href="#" class="button button-primary">Approve</a> |
+                            <a href="#" class="button button-secondary">Reject</a>
+                        </td>
+                    </tr>
+                <?php endwhile; ?>
+            </tbody>
+        </table>
+        <?php
+        wp_reset_postdata(); // Restore original post data
+    } else {
+        echo '<p>There are no products pending approval at this time.</p>';
+    }
+}
