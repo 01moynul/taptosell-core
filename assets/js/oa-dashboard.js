@@ -122,3 +122,46 @@ jQuery(document).ready(function($) {
     });
 
 }); // End of jQuery(document).ready()
+/**
+ * --- NEW (Phase 12): OA Dashboard - Product Details Modal ---
+ * Handles the functionality for the per-product commission modal.
+ */
+jQuery(document).ready(function($) {
+    // --- Define our modal elements ---
+    const modal = $('#taptosell-product-details-modal');
+    const closeBtn = $('.taptosell-modal-close');
+    const detailsButtons = $('.taptosell-oa-product-details-btn');
+
+    // --- When a "Details" button is clicked ---
+    detailsButtons.on('click', function() {
+        // Get the data from the button that was clicked
+        const productId = $(this).data('product-id');
+        const productName = $(this).data('product-name');
+        const currentCommission = $(this).data('current-commission');
+        const globalCommission = $(this).data('global-commission');
+
+        // Populate the modal's content
+        $('#modal-product-name').text(productName);
+        $('#modal-product-id').val(productId);
+        
+        // Set the input value and placeholder
+        const commissionInput = $('#modal-commission-rate');
+        commissionInput.val(currentCommission); // Set the current value
+        commissionInput.attr('placeholder', 'Global: ' + globalCommission + '%'); // Set placeholder
+
+        // Display the modal
+        modal.css('display', 'block');
+    });
+
+    // --- When the close button (X) is clicked ---
+    closeBtn.on('click', function() {
+        modal.css('display', 'none');
+    });
+
+    // --- When the user clicks outside the modal content ---
+    $(window).on('click', function(event) {
+        if ($(event.target).is(modal)) {
+            modal.css('display', 'none');
+        }
+    });
+});

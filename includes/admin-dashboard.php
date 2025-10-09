@@ -281,26 +281,36 @@ function taptosell_oa_dashboard_shortcode() {
 add_shortcode('oa_dashboard', 'taptosell_oa_dashboard_shortcode');
 
 /**
- * --- Renders the Product Management view. ---
- * UPDATED: Adds rejection modal and makes the "Reject" button functional.
+ * --- REVISED (Phase 11 & 12): Renders the Product Management view for the OA. ---
+ * Displays a list of pending products with Approve, Reject, and now Details actions.
+ * Also includes the HTML structure for the commission editing modal.
  */
 function taptosell_render_oa_products_view() {
     ?>
     <h3>Manage Pending Products</h3>
     <?php
-    // --- Display success/error messages ---
+    // --- Display any success/error messages ---
     if (isset($_GET['message'])) {
         if ($_GET['message'] === 'product_approved') {
-            echo '<div class="taptosell-notice success"><p>Product approved and published successfully.</p></div>';
-        } elseif ($_GET['message'] === 'product_rejected') {
-            echo '<div class="taptosell-notice success"><p>Product rejected and returned to supplier drafts.</p></div>';
+            echo '<div class="taptosell-notice success"><p>Product has been approved and the supplier has been notified.</p></div>';
+        }
+        if ($_GET['message'] === 'product_rejected') {
+            echo '<div class="taptosell-notice"><p>Product has been rejected and the supplier has been notified.</p></div>';
+        }
+        // --- NEW (Phase 12): Add message for commission updates ---
+        if ($_GET['message'] === 'commission_updated') {
+            echo '<div class="taptosell-notice success"><p>Product commission has been updated successfully.</p></div>';
         }
     }
     ?>
-    <p>The following products have been submitted by suppliers and are awaiting approval.</p>
+    <p>The following products have been submitted by suppliers and are awaiting your review.</p>
     <?php
 
-    $args = ['post_type' => 'product', 'post_status' => 'pending', 'posts_per_page' => 20, 'orderby' => 'date', 'order' => 'DESC'];
+    $args = [
+        'post_type'      => 'product',
+        'post_status'    => 'pending',
+        'posts_per_page' => 20,
+    ];
     $pending_products_query = new WP_Query($args);
 
     if ($pending_products_query->have_posts()) {
@@ -308,19 +318,22 @@ function taptosell_render_oa_products_view() {
         <table class="wp-list-table widefat fixed striped">
             <thead>
                 <tr>
-                    <th style="width: 70px;">Image</th>
                     <th>Product Name</th>
                     <th>Supplier</th>
-                    <th>Submitted On</th>
-                    <th>Actions</th>
+                    <th>Date Submitted</th>
+                    <th style="width: 250px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <?php while ($pending_products_query->have_posts()) : $pending_products_query->the_post(); 
                     $product_id = get_the_ID();
                     $supplier = get_user_by('id', get_the_author_meta('ID'));
+                    
+                    // Get commission to pass to the modal
+                    $current_commission = get_post_meta($product_id, '_taptosell_commission_rate', true);
+                    $global_commission = get_option('taptosell_platform_commission', 5);
 
-                    // Create secure URLs for approve and reject actions
+                    // Create secure URLs for approve/reject actions
                     $approve_nonce = wp_create_nonce('oa_approve_product_' . $product_id);
                     $approve_link = admin_url('admin-post.php?action=taptosell_oa_approve_product&product_id=' . $product_id . '&_wpnonce=' . $approve_nonce);
 
@@ -328,20 +341,19 @@ function taptosell_render_oa_products_view() {
                     $reject_link = admin_url('admin-post.php?action=taptosell_oa_reject_product&product_id=' . $product_id . '&_wpnonce=' . $reject_nonce);
                 ?>
                     <tr>
-                        <td>
-                            <?php if (has_post_thumbnail()) : ?>
-                                <img src="<?php the_post_thumbnail_url([60, 60]); ?>" alt="<?php the_title(); ?>" style="width: 60px; height: 60px; object-fit: cover;">
-                            <?php else: ?>
-                                <span class="dashicons dashicons-format-image"></span>
-                            <?php endif; ?>
-                        </td>
                         <td><strong><?php the_title(); ?></strong></td>
                         <td><?php echo esc_html($supplier->display_name); ?></td>
                         <td><?php echo get_the_date(); ?></td>
                         <td>
-                            <a href="<?php echo get_edit_post_link($product_id); ?>" target="_blank" class="button button-secondary">View/Edit</a> |
-                            <a href="<?php echo esc_url($approve_link); ?>" class="button button-primary">Approve</a> |
-                            <a href="#" class="button button-secondary oa-product-reject-btn" data-reject-url="<?php echo esc_url($reject_link); ?>">Reject</a>
+                            <a href="<?php echo esc_url($approve_link); ?>" class="button button-primary">Approve</a>
+                            <a href="<?php echo esc_url($reject_link); ?>" class="button button-secondary">Reject</a>
+                            <button 
+                                class="button button-secondary taptosell-oa-product-details-btn"
+                                data-product-id="<?php echo esc_attr($product_id); ?>"
+                                data-product-name="<?php echo esc_attr(get_the_title()); ?>"
+                                data-current-commission="<?php echo esc_attr($current_commission); ?>"
+                                data-global-commission="<?php echo esc_attr($global_commission); ?>"
+                            >Details</button>
                         </td>
                     </tr>
                 <?php endwhile; ?>
@@ -350,20 +362,33 @@ function taptosell_render_oa_products_view() {
         <?php
         wp_reset_postdata();
     } else {
-        echo '<p>There are no products pending approval at this time.</p>';
+        echo '<p>There are no products pending review at this time.</p>';
     }
+    
+    // --- NEW (Phase 12): HTML structure for the product details modal ---
     ?>
-
-    <div id="tts-product-rejection-modal" class="taptosell-modal-overlay" style="display: none;">
+    <div id="taptosell-product-details-modal" class="taptosell-modal" style="display: none;">
         <div class="taptosell-modal-content">
-            <span class="tts-modal-close">&times;</span>
-            <h3 class="taptosell-modal-title">Product Rejection Reason</h3>
-            <p>Please provide a reason for rejecting this product. This will be sent to the supplier.</p>
-            <textarea id="tts-product-rejection-reason-text" style="width: 100%; height: 100px;" placeholder="e.g., Product images are low quality..."></textarea>
-            <div style="margin-top: 20px; text-align: right;">
-                <button type="button" class="button button-secondary tts-modal-cancel">Cancel</button>
-                <button type="button" id="tts-product-rejection-confirm" class="button button-primary" style="margin-left: 10px;">Confirm Rejection</button>
-            </div>
+            <span class="taptosell-modal-close">&times;</span>
+            <h3>Product Details</h3>
+            <p><strong>Product:</strong> <span id="modal-product-name"></span></p>
+            <form id="taptosell-commission-form" method="POST" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                <input type="hidden" name="action" value="taptosell_oa_update_commission">
+                <input type="hidden" name="product_id" id="modal-product-id" value="">
+                <?php wp_nonce_field('oa_update_commission_action', 'oa_update_commission_nonce'); ?>
+                
+                <div class="form-row">
+                    <label for="modal-commission-rate">Per-Product Commission Rate (%)</label>
+                    <input type="number" step="0.1" id="modal-commission-rate" name="taptosell_commission_rate" placeholder="Global Rate" style="width: 100%;" />
+                    <p class="description">
+                        Set a specific commission for this product. Leave blank to use the global rate.
+                    </p>
+                </div>
+                
+                <div class="form-row">
+                    <button type="submit" class="button button-primary">Save Commission</button>
+                </div>
+            </form>
         </div>
     </div>
     <?php
