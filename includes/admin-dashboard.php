@@ -293,9 +293,9 @@ function taptosell_oa_dashboard_shortcode() {
 add_shortcode('oa_dashboard', 'taptosell_oa_dashboard_shortcode');
 
 /**
- * --- REVISED (Phase 11 & 12): Renders the Product Management view for the OA. ---
- * Displays a list of pending products with Approve, Reject, and now Details actions.
- * Also includes the HTML structure for the commission editing modal.
+ * --- REVISED (Phase 12): Renders the Product Management view for the OA. ---
+ * Displays a list of pending products with Approve, Reject, and Details actions.
+ * Uses a custom overlay modal for the new AJAX-powered details view.
  */
 function taptosell_render_oa_products_view() {
     ?>
@@ -309,7 +309,6 @@ function taptosell_render_oa_products_view() {
         if ($_GET['message'] === 'product_rejected') {
             echo '<div class="taptosell-notice"><p>Product has been rejected and the supplier has been notified.</p></div>';
         }
-        // --- NEW (Phase 12): Add message for commission updates ---
         if ($_GET['message'] === 'commission_updated') {
             echo '<div class="taptosell-notice success"><p>Product commission has been updated successfully.</p></div>';
         }
@@ -340,12 +339,7 @@ function taptosell_render_oa_products_view() {
                 <?php while ($pending_products_query->have_posts()) : $pending_products_query->the_post(); 
                     $product_id = get_the_ID();
                     $supplier = get_user_by('id', get_the_author_meta('ID'));
-                    
-                    // Get commission to pass to the modal
-                    $current_commission = get_post_meta($product_id, '_taptosell_commission_rate', true);
-                    $global_commission = get_option('taptosell_platform_commission', 5);
 
-                    // Create secure URLs for approve/reject actions
                     $approve_nonce = wp_create_nonce('oa_approve_product_' . $product_id);
                     $approve_link = admin_url('admin-post.php?action=taptosell_oa_approve_product&product_id=' . $product_id . '&_wpnonce=' . $approve_nonce);
 
@@ -359,13 +353,13 @@ function taptosell_render_oa_products_view() {
                         <td>
                             <a href="<?php echo esc_url($approve_link); ?>" class="button button-primary">Approve</a>
                             <a href="<?php echo esc_url($reject_link); ?>" class="button button-secondary">Reject</a>
+                            
                             <button 
-                                class="button button-secondary taptosell-oa-product-details-btn"
+                                type="button"
+                                class="button button-secondary view-product-details"
                                 data-product-id="<?php echo esc_attr($product_id); ?>"
-                                data-product-name="<?php echo esc_attr(get_the_title()); ?>"
-                                data-current-commission="<?php echo esc_attr($current_commission); ?>"
-                                data-global-commission="<?php echo esc_attr($global_commission); ?>"
                             >Details</button>
+
                         </td>
                     </tr>
                 <?php endwhile; ?>
@@ -377,30 +371,15 @@ function taptosell_render_oa_products_view() {
         echo '<p>There are no products pending review at this time.</p>';
     }
     
-    // --- NEW (Phase 12): HTML structure for the product details modal ---
+    // --- THIS IS THE NEW CUSTOM MODAL STRUCTURE (NON-BOOTSTRAP) ---
     ?>
-    <div id="taptosell-product-details-modal" class="taptosell-modal" style="display: none;">
-        <div class="taptosell-modal-content">
-            <span class="taptosell-modal-close">&times;</span>
-            <h3>Product Details</h3>
-            <p><strong>Product:</strong> <span id="modal-product-name"></span></p>
-            <form id="taptosell-commission-form" method="POST" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                <input type="hidden" name="action" value="taptosell_oa_update_commission">
-                <input type="hidden" name="product_id" id="modal-product-id" value="">
-                <?php wp_nonce_field('oa_update_commission_action', 'oa_update_commission_nonce'); ?>
-                
-                <div class="form-row">
-                    <label for="modal-commission-rate">Per-Product Commission Rate (%)</label>
-                    <input type="number" step="0.1" id="modal-commission-rate" name="taptosell_commission_rate" placeholder="Global Rate" style="width: 100%;" />
-                    <p class="description">
-                        Set a specific commission for this product. Leave blank to use the global rate.
-                    </p>
-                </div>
-                
-                <div class="form-row">
-                    <button type="submit" class="button button-primary">Save Commission</button>
-                </div>
-            </form>
+    <div id="productDetailsModal" class="taptosell-modal-overlay" style="display: none;">
+        <div class="taptosell-modal-content" style="max-width: 800px;">
+            <span class="tts-modal-close taptosell-modal-close">&times;</span>
+            <h3 id="productDetailsModalLabel" class="taptosell-modal-title">Product Details</h3>
+            <div class="modal-body">
+                <p>Loading product details...</p>
+            </div>
         </div>
     </div>
     <?php

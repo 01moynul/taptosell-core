@@ -246,27 +246,29 @@ function taptosell_enqueue_variations_script() {
 add_action('wp_enqueue_scripts', 'taptosell_enqueue_variations_script');
 
 /**
- * --- UPDATED (Phase 11): Enqueues scripts for the OA Dashboard. ---
- * Now also passes AJAX URL and a security nonce to the script.
+ * --- UPDATED (Phase 12): Enqueues scripts for the OA Dashboard. ---
+ * Consolidates all JavaScript variables (AJAX URL and nonces) into a single
+ * localization object to prevent conflicts and ensure all data is available when needed.
  */
 function taptosell_enqueue_oa_dashboard_scripts() {
     // Only load these scripts on our OA Dashboard page
     if ( is_page('operational-admin-dashboard') ) {
         wp_enqueue_script(
-            'taptosell-oa-dashboard',
+            'taptosell-oa-dashboard-scripts', // Use a consistent script handle
             TAPTOSELL_CORE_URL . 'assets/js/oa-dashboard.js',
             ['jquery'],
             TAPTOSELL_CORE_VERSION,
             true // Load in footer
         );
 
-        // Pass data from PHP to our JavaScript file
+        // Pass the consolidated data object that the new JS expects
         wp_localize_script(
-            'taptosell-oa-dashboard',
-            'tts_oa_dashboard', // This will be the JavaScript object name
+            'taptosell-oa-dashboard-scripts', // Match the script handle
+            'tts_oa_data', // This is the object name our new JS is looking for
             [
                 'ajax_url' => admin_url('admin-ajax.php'),
-                'details_nonce' => wp_create_nonce('oa_view_user_details_nonce'),
+                'user_details_nonce' => wp_create_nonce('taptosell_get_user_details_nonce'),
+                'product_details_nonce' => wp_create_nonce('oa_view_product_details_nonce'),
             ]
         );
     }
