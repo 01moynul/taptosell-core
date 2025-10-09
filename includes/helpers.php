@@ -15,3 +15,25 @@ function taptosell_get_commission_multiplier() {
     // Convert the percentage to a multiplier for calculations.
     return 1 + ($commission_percentage / 100);
 }
+/**
+ * --- NEW (Phase 12 Fix): Modern replacement for the deprecated get_page_by_title(). ---
+ * Finds a single page by its exact title.
+ *
+ * @param string $title The title of the page to find.
+ * @return WP_Post|null The post object if found, otherwise null.
+ */
+function taptosell_get_page_by_title($title) {
+    $pages = get_posts([
+        'post_type'      => 'page',
+        'post_status'    => 'publish',
+        'title'          => $title,
+        'posts_per_page' => 1,
+        'no_found_rows'  => true, // Performance improvement
+    ]);
+
+    if (!empty($pages)) {
+        return $pages[0]; // Return the first (and only) post object
+    }
+
+    return null; // Return null if no page was found
+}

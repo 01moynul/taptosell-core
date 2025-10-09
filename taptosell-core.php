@@ -20,6 +20,7 @@ define( 'TAPTOSELL_CORE_VERSION', '1.2.0' ); // Get version from plugin header
 
 // Include all the core functionality files.
 require_once TAPTOSELL_CORE_PATH . 'includes/core-hooks.php';
+require_once TAPTOSELL_CORE_PATH . 'includes/helpers.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/security.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/login-functions.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/admin-ui.php';
@@ -33,7 +34,6 @@ require_once TAPTOSELL_CORE_PATH . 'includes/dropshipper-functions.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/wallet-functions.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/admin-settings-page.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/admin-price-requests.php';
-require_once TAPTOSELL_CORE_PATH . 'includes/helpers.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/api-shopee.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/subscription-functions.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/notifications-functions.php';
