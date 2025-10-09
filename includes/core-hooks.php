@@ -187,7 +187,6 @@ function taptosell_prevent_dynamic_page_caching() {
         'My Orders',
         'Dropshipper Dashboard',
         'Supplier Dashboard',
-        'Operational Admin Dashboard', // <-- ADD THIS LINE
     ];
 
     // Check if the current request is for a single page.
@@ -270,12 +269,6 @@ function taptosell_enqueue_oa_dashboard_scripts() {
 }
 add_action('wp_enqueue_scripts', 'taptosell_enqueue_oa_dashboard_scripts');
 
-// --- NEW (Phase 11): Admin Actions ---
-// This hook links our custom processing function to the "Mark as Processed" button URL.
-add_action('admin_post_taptosell_oa_process_withdrawal', 'taptosell_handle_oa_process_withdrawal');
-add_action('admin_post_taptosell_oa_approve_price', 'taptosell_handle_oa_approve_price');
-add_action('admin_post_taptosell_oa_reject_price', 'taptosell_handle_oa_reject_price');
-add_action('admin_post_taptosell_oa_save_settings', 'taptosell_handle_oa_settings_save');
 /**
  * --- REVISED: Dynamically Filter Menu Items Based on User Role ---
  * This function uses a "whitelist" approach to show only the menu items
@@ -290,42 +283,45 @@ function taptosell_filter_nav_menu_items($sorted_menu_items) {
     $is_logged_in = $user->exists();
     $user_roles = (array) $user->roles;
 
-    // --- Rule for Admins: If the user is an admin, show everything and stop here. ---
-    if ( in_array('administrator', $user_roles) || in_array('operational_admin', $user_roles) ) {
+    // --- Rule for Administrators: Show everything and stop here. ---
+    if ( in_array('administrator', $user_roles) ) {
         return $sorted_menu_items;
     }
 
-    // --- Define Page Groups ---
-    // NOTE: These titles must EXACTLY match the titles in your WordPress Menu settings.
+    // --- Define Page Groups (Titles must EXACTLY match your WordPress Menu items) ---
     $public_pages           = ['Home', 'coming soon'];
-    $logged_out_only_pages  = ['Login', 'Registration', 'Supplier Registration'];
-    $supplier_pages         = ['Supplier Dashboard', 'Add New Product'];
-    $dropshipper_pages      = ['Dropshipper Dashboard', 'Product Catalog', 'My Wallet', 'My Shops', 'My Subscription', 'Product Matching'];
-    $authenticated_shared   = ['Logout', 'Notifications', 'Verify Account']; // Pages for any logged-in user
+    $logged_out_only_pages  = ['Login', 'Register'];
+    $supplier_pages         = ['Supplier Dashboard','My Wallet','Fulfill Order'];
+    $dropshipper_pages      = ['Dropshipper Dashboard', 'Product Catalog', 'My Store', 'My Wallet', 'My Shops', 'My Subscription', 'Product Matching'];
+    $oa_pages               = ['Operational Admin Dashboard'];
+    $authenticated_shared   = ['Logout', 'Notifications',]; // Pages for any logged-in user
 
     // --- Build the final list of allowed page titles for the current user ---
     $allowed_pages = $public_pages;
 
     if ($is_logged_in) {
-        // Add pages that all logged-in users can see
         $allowed_pages = array_merge($allowed_pages, $authenticated_shared);
 
+        // Add pages specific to the Operational Admin role
+        if (in_array('operational_admin', $user_roles)) {
+            $allowed_pages = array_merge($allowed_pages, $oa_pages);
+        
         // Add pages specific to the Supplier role
-        if (in_array('supplier', $user_roles)) {
+        } elseif (in_array('supplier', $user_roles)) {
             $allowed_pages = array_merge($allowed_pages, $supplier_pages);
-            // Suppliers also need the Wallet, let's add it here specifically
-            $allowed_pages[] = 'My Wallet';
-        }
+            $allowed_pages[] = 'My Wallet'; // Suppliers also need the Wallet
+        
         // Add pages specific to the Dropshipper role
-        if (in_array('dropshipper', $user_roles)) {
+        } elseif (in_array('dropshipper', $user_roles)) {
             $allowed_pages = array_merge($allowed_pages, $dropshipper_pages);
         }
+
     } else {
         // User is not logged in, so only show public and logged-out pages
         $allowed_pages = array_merge($allowed_pages, $logged_out_only_pages);
     }
 
-    // --- Filter the menu items ---
+    // --- Filter the menu items (Using the original, reliable comparison method) ---
     foreach ($sorted_menu_items as $key => $menu_item) {
         // If the current menu item's title is NOT in our allowed list, remove it.
         if (!in_array($menu_item->title, $allowed_pages)) {

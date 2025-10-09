@@ -719,3 +719,145 @@ function taptosell_handle_oa_settings_save() {
     wp_redirect($base_redirect_url . '#/settings');
     exit;
 }
+/**
+ * --- NEW (Phase 12): Handles saving the per-product commission from the OA dashboard modal. ---
+ */
+function taptosell_handle_oa_update_commission() {
+    // 1. Security Checks
+    if ( ! isset( $_POST['oa_update_commission_nonce'] ) || ! wp_verify_nonce( $_POST['oa_update_commission_nonce'], 'oa_update_commission_action' ) ) {
+        wp_die( 'Security check failed.' );
+    }
+    if ( ! current_user_can( 'operational_admin' ) ) {
+        wp_die( 'You do not have permission to perform this action.' );
+    }
+
+    // 2. Sanitize and retrieve the submitted data
+    $product_id = isset( $_POST['product_id'] ) ? intval( $_POST['product_id'] ) : 0;
+    $commission_rate = isset( $_POST['taptosell_commission_rate'] ) ? sanitize_text_field( $_POST['taptosell_commission_rate'] ) : '';
+
+    if ( $product_id > 0 ) {
+        // 3. Save or delete the meta field
+        if ( $commission_rate === '' || ! is_numeric( $commission_rate ) ) {
+            // If the field is empty or not a number, delete the meta key to revert to the global rate.
+            delete_post_meta( $product_id, '_taptosell_commission_rate' );
+        } else {
+            // Otherwise, update the meta field with the new rate.
+            update_post_meta( $product_id, '_taptosell_commission_rate', $commission_rate );
+        }
+    }
+
+    // 4. Redirect back to the OA dashboard's product view with a success message
+    $oa_dashboard_page = taptosell_get_page_by_title('Operational Admin Dashboard');
+    if ($oa_dashboard_page) {
+        $redirect_url = get_permalink($oa_dashboard_page->ID);
+        $redirect_url = add_query_arg([
+            'view'    => 'products',
+            'message' => 'commission_updated'
+        ], $redirect_url);
+        
+        wp_redirect( $redirect_url );
+        exit;
+    }
+}
+// Hook the new handler to its action.
+add_action( 'admin_post_taptosell_oa_update_commission', 'taptosell_handle_oa_update_commission' );
+
+/**
+ * --- NEW (Phase 12): AJAX handler to fetch full product details for the OA dashboard modal. ---
+ */
+function taptosell_get_product_details_ajax_handler() {
+    // 1. Security checks
+    check_ajax_referer('oa_view_product_details_nonce', 'security');
+    if (!current_user_can('operational_admin')) {
+        wp_send_json_error(['message' => 'Permission denied.']);
+    }
+
+    $product_id = isset($_POST['product_id']) ? intval($_POST['product_id']) : 0;
+    if ($product_id <= 0) {
+        wp_send_json_error(['message' => 'Invalid product ID.']);
+    }
+
+    $product = get_post($product_id);
+    if (!$product) {
+        wp_send_json_error(['message' => 'Product not found.']);
+    }
+
+    // 2. Gather all product data
+    $supplier = get_user_by('id', $product->post_author);
+    $is_variable = has_term('variable', 'product_type', $product_id);
+    $commission_rate = get_post_meta($product_id, '_taptosell_commission_rate', true);
+    $global_commission_rate = get_option('taptosell_platform_commission', 5);
+
+    // 3. Start building the HTML output
+    ob_start();
+    ?>
+    <div class="product-details-grid">
+        <div class="product-details-column">
+            <h4>Core Information</h4>
+            <p><strong>Product ID:</strong> <?php echo esc_html($product_id); ?></p>
+            <p><strong>Supplier:</strong> <?php echo esc_html($supplier->display_name); ?></p>
+            <p><strong>Status:</strong> <span class="taptosell-status-badge status-<?php echo esc_attr($product->post_status); ?>"><?php echo esc_html(ucfirst($product->post_status)); ?></span></p>
+            
+            <hr style="margin: 20px 0;">
+            <h4>Commission Control</h4>
+            <form action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="post" class="commission-form">
+                <?php wp_nonce_field('oa_update_commission_action', 'oa_update_commission_nonce'); ?>
+                <input type="hidden" name="action" value="taptosell_oa_update_commission">
+                <input type="hidden" name="product_id" value="<?php echo esc_attr($product_id); ?>">
+                
+                <div class="form-field">
+                    <label for="taptosell_commission_rate">Per-Product Commission Rate (%)</label>
+                    <input type="number" id="taptosell_commission_rate" name="taptosell_commission_rate" value="<?php echo esc_attr($commission_rate); ?>" placeholder="Global: <?php echo esc_attr($global_commission_rate); ?>%" step="0.01">
+                    <p class="description">Leave blank to use the global rate.</p>
+                </div>
+                <button type="submit" class="button button-primary">Save Commission</button>
+            </form>
+        </div>
+
+        <div class="product-details-column">
+            <h4>Sales Information</h4>
+            <?php if ($is_variable): 
+                $variations = get_post_meta($product_id, '_variations', true);
+            ?>
+                <p>This is a <strong>variable product</strong>.</p>
+                <table class="wp-list-table widefat striped">
+                    <thead><tr><th>Variation</th><th>Price</th><th>Stock</th><th>SKU</th></tr></thead>
+                    <tbody>
+                        <?php if (!empty($variations) && is_array($variations)): ?>
+                            <?php foreach ($variations as $var): ?>
+                            <tr>
+                                <td><?php echo esc_html($var['name']); ?></td>
+                                <td>RM <?php echo esc_html(number_format((float)$var['price'], 2)); ?></td>
+                                <td><?php echo esc_html($var['stock']); ?></td>
+                                <td><?php echo esc_html($var['sku']); ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr><td colspan="4">No variation data found.</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            <?php else: 
+                $price = get_post_meta($product_id, '_price', true);
+                $stock = get_post_meta($product_id, '_stock_quantity', true);
+                $sku = get_post_meta($product_id, '_sku', true);
+            ?>
+                <p>This is a <strong>simple product</strong>.</p>
+                <p><strong>Price:</strong> RM <?php echo esc_html(number_format((float)$price, 2)); ?></p>
+                <p><strong>Stock:</strong> <?php echo esc_html($stock); ?></p>
+                <p><strong>SKU:</strong> <?php echo esc_html($sku); ?></p>
+            <?php endif; ?>
+        </div>
+    </div>
+    <div class="product-description-full">
+        <hr style="margin: 20px 0;">
+        <h4>Product Description</h4>
+        <div><?php echo wp_kses_post($product->post_content); ?></div>
+    </div>
+    <?php
+    $html_output = ob_get_clean();
+
+    // 4. Send the HTML back to the AJAX request
+    wp_send_json_success(['html' => $html_output]);
+}
+add_action('wp_ajax_taptosell_get_product_details', 'taptosell_get_product_details_ajax_handler');

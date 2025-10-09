@@ -1,167 +1,128 @@
-// This is the main jQuery wrapper. All code using the '$' shortcut must be inside this function.
+/**
+ * TapToSell Core Scripts for the Operational Admin Frontend Dashboard
+ *
+ * This script handles all interactive elements on the OA dashboard, including:
+ * - User rejection modal with reason input.
+ * - User details modal with AJAX data loading.
+ * - Product rejection modal with reason input.
+ * - Product details modal for setting per-product commission.
+ *
+ * @version 1.2.0
+ */
 jQuery(document).ready(function($) {
-    
-    // --- Rejection Modal Logic ---
-    const reasonModal = $('#tts-rejection-modal');
-    const reasonText = $('#tts-rejection-reason-text');
-    const cancelBtn = $('#tts-rejection-cancel');
-    const confirmBtn = $('#tts-rejection-confirm');
-    
-    // When an OA clicks ANY reject button in the user list...
-    $('.oa-reject-user-btn').on('click', function(e) {
-        e.preventDefault(); // Stop the link from navigating immediately
-        
-        // Get the rejection URL from the button's data attribute
+
+    // =================================================================
+    // 1. USER MANAGEMENT MODALS
+    // =================================================================
+
+    // --- User Rejection Modal ---
+    const userRejectionModal = $('#tts-rejection-modal');
+    const userReasonText = $('#tts-rejection-reason-text');
+    const userCancelBtn = $('#tts-rejection-cancel');
+    const userConfirmBtn = $('#tts-rejection-confirm');
+
+    // When an OA clicks a "Reject" button in the user list
+    $('body').on('click', '.oa-reject-user-btn', function(e) {
+        e.preventDefault();
         const rejectionUrl = $(this).data('reject-url');
-        
-        // Store this URL on the confirm button so we know where to go later
-        confirmBtn.data('base-url', rejectionUrl);
-        
-        // Clear any previous reason text and show the modal
-        reasonText.val('');
-        reasonModal.show();
+        userConfirmBtn.data('base-url', rejectionUrl);
+        userReasonText.val('');
+        userRejectionModal.show();
     });
 
-    // When the OA clicks the "Confirm Rejection" button in the modal...
-    confirmBtn.on('click', function() {
+    // Handle the user rejection confirmation
+    userConfirmBtn.on('click', function() {
         const baseUrl = $(this).data('base-url');
-        const reason = reasonText.val();
-        
-        // Add the reason to the URL as a new parameter
+        const reason = userReasonText.val();
         const finalUrl = baseUrl + '&reason=' + encodeURIComponent(reason);
-        
-        // Navigate to the final URL to process the rejection
         window.location.href = finalUrl;
     });
 
-    // When the OA clicks "Cancel" or the close 'x' on the rejection modal, hide it
-    cancelBtn.on('click', function() { reasonModal.hide(); });
-    // This needs to be more specific to avoid closing both modals
-    $('#tts-rejection-modal .tts-modal-close').on('click', function() { reasonModal.hide(); });
-    
-    // --- User Details Modal Logic (NOW MOVED INSIDE THE WRAPPER) ---
-    const detailsModal = $('#tts-details-modal');
-    const detailsContent = $('#tts-details-modal-content');
+    // Close the user rejection modal
+    userCancelBtn.on('click', function() { userRejectionModal.hide(); });
+    $('#tts-rejection-modal .tts-modal-close').on('click', function() { userRejectionModal.hide(); });
 
-    // When an OA clicks a "Details" button
-    // We bind the event to the body to ensure it works even if the user list is updated dynamically later.
+    // --- User Details Modal (AJAX) ---
+    const userDetailsModal = $('#tts-details-modal');
+    const userDetailsContent = $('#tts-details-modal-content');
+
+    // When an OA clicks a "Details" button in the user list
     $('body').on('click', '.oa-user-details-btn', function(e) {
         e.preventDefault();
-        
         const userId = $(this).data('userid');
         
-        // Show the modal with a loading message
-        detailsContent.html('<p>Loading details...</p>');
-        detailsModal.show();
+        userDetailsContent.html('<p>Loading details...</p>');
+        userDetailsModal.show();
 
-        // Prepare the AJAX request using the data passed from PHP
         $.ajax({
             url: tts_oa_dashboard.ajax_url,
             type: 'POST',
             data: {
-                action: 'taptosell_get_user_details', // Our PHP handler
-                security: tts_oa_dashboard.details_nonce, // Security token
+                action: 'taptosell_get_user_details',
+                security: tts_oa_dashboard.details_nonce,
                 user_id: userId
             },
             success: function(response) {
                 if (response.success) {
-                    // If successful, populate the modal with the HTML from PHP
-                    detailsContent.html(response.data.html);
+                    userDetailsContent.html(response.data.html);
                 } else {
-                    // If there was an error, show the error message
-                    detailsContent.html('<p>Error: ' + (response.data.message || 'Unknown error.') + '</p>');
+                    userDetailsContent.html('<p>Error: ' + (response.data.message || 'Unknown error.') + '</p>');
                 }
             },
             error: function() {
-                // Handle server errors
-                detailsContent.html('<p>An unexpected error occurred. Please try again.</p>');
+                userDetailsContent.html('<p>An unexpected error occurred. Please try again.</p>');
             }
         });
     });
 
-    // Make the close button on the details modal work
-    detailsModal.find('.tts-modal-close').on('click', function() {
-        detailsModal.hide();
+    // Close the user details modal
+    userDetailsModal.find('.tts-modal-close').on('click', function() {
+        userDetailsModal.hide();
     });
 
-    // --- Product Rejection Modal Logic ---
-    const productRejectModal = $('#tts-product-rejection-modal');
-    const productReasonText = $('#tts-product-rejection-reason-text');
-    const productConfirmBtn = $('#tts-product-rejection-confirm');
 
-    // When an OA clicks a product reject button
-    $('body').on('click', '.oa-product-reject-btn', function(e) {
-        e.preventDefault();
-        
-        // Get the base rejection URL from the button's data attribute
-        const rejectionUrl = $(this).data('reject-url');
-        
-        // Store this URL on the confirm button
-        productConfirmBtn.data('base-url', rejectionUrl);
-        
-        // Clear previous reason and show the modal
-        productReasonText.val('');
-        productRejectModal.show();
-    });
+    // =================================================================
+    // 2. PRODUCT MANAGEMENT MODALS
+    // =================================================================
 
-    // When the OA clicks the "Confirm Rejection" button in the product modal
-    productConfirmBtn.on('click', function() {
-        const baseUrl = $(this).data('base-url');
-        const reason = productReasonText.val();
-        
-        // Add the reason to the URL as a new parameter
-        const finalUrl = baseUrl + '&reason=' + encodeURIComponent(reason);
-        
-        // Navigate to the final URL to process the rejection
-        window.location.href = finalUrl;
-    });
-
-    // Close functionality for the product rejection modal
-    productRejectModal.find('.tts-modal-close, .tts-modal-cancel').on('click', function() {
-        productRejectModal.hide();
-    });
-
-}); // End of jQuery(document).ready()
-/**
- * --- NEW (Phase 12): OA Dashboard - Product Details Modal ---
- * Handles the functionality for the per-product commission modal.
- */
-jQuery(document).ready(function($) {
-    // --- Define our modal elements ---
-    const modal = $('#taptosell-product-details-modal');
-    const closeBtn = $('.taptosell-modal-close');
-    const detailsButtons = $('.taptosell-oa-product-details-btn');
-
-    // --- When a "Details" button is clicked ---
-    detailsButtons.on('click', function() {
-        // Get the data from the button that was clicked
+    // --- Product Details & Commission Modal ---
+    const productDetailsModal = $('#taptosell-product-details-modal');
+    
+    // When a "Details" button is clicked in the product list
+    $('body').on('click', '.taptosell-oa-product-details-btn', function() {
+        // Get data from the button's data attributes
         const productId = $(this).data('product-id');
         const productName = $(this).data('product-name');
         const currentCommission = $(this).data('current-commission');
         const globalCommission = $(this).data('global-commission');
 
-        // Populate the modal's content
-        $('#modal-product-name').text(productName);
-        $('#modal-product-id').val(productId);
+        // Populate the modal's static and form content
+        productDetailsModal.find('#modal-product-name').text(productName);
+        productDetailsModal.find('#modal-product-id').val(productId);
         
-        // Set the input value and placeholder
-        const commissionInput = $('#modal-commission-rate');
-        commissionInput.val(currentCommission); // Set the current value
-        commissionInput.attr('placeholder', 'Global: ' + globalCommission + '%'); // Set placeholder
+        const commissionInput = productDetailsModal.find('#modal-commission-rate');
+        commissionInput.val(currentCommission); // Set the current saved value
+        commissionInput.attr('placeholder', 'Global: ' + globalCommission + '%'); // Set the placeholder
 
         // Display the modal
-        modal.css('display', 'block');
+        productDetailsModal.css('display', 'block');
     });
 
-    // --- When the close button (X) is clicked ---
-    closeBtn.on('click', function() {
-        modal.css('display', 'none');
+    // Close the product details modal
+    productDetailsModal.find('.taptosell-modal-close').on('click', function() {
+        productDetailsModal.css('display', 'none');
     });
 
-    // --- When the user clicks outside the modal content ---
+
+    // =================================================================
+    // 3. GENERAL MODAL BEHAVIOR
+    // =================================================================
+    
+    // Close any open modal when clicking on the dark overlay
     $(window).on('click', function(event) {
-        if ($(event.target).is(modal)) {
-            modal.css('display', 'none');
+        if ($(event.target).is('.taptosell-modal-overlay')) {
+            $(event.target).css('display', 'none');
         }
     });
+
 });
