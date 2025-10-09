@@ -120,7 +120,11 @@ function taptosell_enqueue_frontend_styles() {
         TAPTOSELL_CORE_VERSION,
         true // Load in the footer
     );
-    // ---------------------
+    //--NEW: Force Dashicons to load for logged-in users ---
+    // Hiding the admin bar can prevent this, so we load it manually.
+    if ( is_user_logged_in() ) {
+        wp_enqueue_style( 'dashicons' );
+    }
 }
 add_action('wp_enqueue_scripts', 'taptosell_enqueue_frontend_styles');
 
@@ -291,7 +295,7 @@ function taptosell_filter_nav_menu_items($sorted_menu_items) {
     // --- Define Page Groups (Titles must EXACTLY match your WordPress Menu items) ---
     $public_pages           = ['Home', 'coming soon'];
     $logged_out_only_pages  = ['Login', 'Register'];
-    $supplier_pages         = ['Supplier Dashboard','My Wallet','Fulfill Order'];
+    $supplier_pages         = ['Supplier Dashboard','My Wallet'];
     $dropshipper_pages      = ['Dropshipper Dashboard', 'Product Catalog', 'My Store', 'My Wallet', 'My Shops', 'My Subscription', 'Product Matching'];
     $oa_pages               = ['Operational Admin Dashboard'];
     $authenticated_shared   = ['Logout', 'Notifications',]; // Pages for any logged-in user

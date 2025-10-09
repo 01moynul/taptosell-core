@@ -276,8 +276,8 @@ function taptosell_handle_product_update() {
 add_action('init', 'taptosell_handle_product_update', 20);
 
 /**
- * --- NEW (Phase 10): Shortcode for the NEW "Add a New Product" page. ---
- * This function builds the UI for the multi-section product submission form.
+ * --- REVISED: Shortcode for the NEW "Add a New Product" page. ---
+ * Separates Sales Info and Variations into distinct sections.
  * [taptosell_add_new_product_form]
  */
 function taptosell_add_new_product_form_shortcode() {
@@ -332,10 +332,9 @@ function taptosell_add_new_product_form_shortcode() {
 
             <div class="taptosell-form-section">
                 <div class="section-header">
-                    <h2><?php _e('2. Sales Information', 'taptosell-core'); ?></h2>
+                    <h2><?php _e('2. Sales Information (Simple Product)', 'taptosell-core'); ?></h2>
                 </div>
                 <div class="section-content">
-                    
                     <div class="form-grid-3" id="simple-product-fields">
                         <div class="form-row">
                             <label for="product_price"><?php _e('Your Price (RM)', 'taptosell-core'); ?></label>
@@ -350,20 +349,15 @@ function taptosell_add_new_product_form_shortcode() {
                             <input type="number" step="1" id="product_stock" name="product_stock" placeholder="e.g., 100" required>
                         </div>
                     </div>
-
-                    <hr class="form-divider">
-
-                    <div class="form-row">
-                        <label class="switch-toggle">
-                            <input type="checkbox" id="enable-variations-toggle" name="enable_variations">
-                            <span class="slider round"></span>
-                            <strong><?php _e('Enable Product Variations', 'taptosell-core'); ?></strong>
-                        </label>
-                        <p class="form-hint"><?php _e('Enable this if your product comes in different options, like size or color.', 'taptosell-core'); ?></p>
-                    </div>
-
-                    <div id="variations-container" style="display: none;">
-                        
+                </div>
+            </div>
+            
+            <div class="taptosell-form-section">
+                <div class="section-header">
+                     <h2><?php _e('3. Product Variations', 'taptosell-core'); ?></h2>
+                </div>
+                 <div class="section-content">
+                    <div id="variations-container">
                         <div id="variation-groups-wrapper">
                             <div class="variation-group">
                                 <div class="variation-header">
@@ -375,24 +369,18 @@ function taptosell_add_new_product_form_shortcode() {
                                 </div>
                             </div>
                         </div>
-
                         <button type="button" id="add-variation-group" class="taptosell-button secondary"><?php _e('+ Add Variation Type', 'taptosell-core'); ?></button>
-                        
                         <hr class="form-divider">
-
                         <h4><?php _e('Variation List', 'taptosell-core'); ?></h4>
                         <p class="form-hint"><?php _e('This list is generated automatically. Set the price, stock, and SKU for each variant.', 'taptosell-core'); ?></p>
-
-                        <div id="variation-list-table-wrapper">
-                            </div>
+                        <div id="variation-list-table-wrapper"></div>
                     </div>
-
                 </div>
             </div>
 
              <div class="taptosell-form-section">
                 <div class="section-header">
-                    <h2><?php _e('3. Media', 'taptosell-core'); ?></h2>
+                    <h2><?php _e('4. Media', 'taptosell-core'); ?></h2>
                 </div>
                 <div class="section-content">
                     <div class="form-row">
@@ -409,7 +397,7 @@ function taptosell_add_new_product_form_shortcode() {
 
             <div class="taptosell-form-section">
                 <div class="section-header">
-                    <h2><?php _e('4. Shipping', 'taptosell-core'); ?></h2>
+                    <h2><?php _e('5. Shipping', 'taptosell-core'); ?></h2>
                 </div>
                 <div class="section-content">
                     <div class="form-row">
@@ -605,8 +593,8 @@ add_shortcode('supplier_my_products', 'taptosell_supplier_my_products_shortcode'
 
 
 /**
- * --- UPDATED (Phase 10): Shortcode for the EDIT product form ---
- * This now uses the new form structure and loads existing product data.
+ * --- REVISED: Shortcode for the EDIT product form ---
+ * Separates Sales Info and Variations into distinct sections.
  * [supplier_edit_product_form]
  */
 function taptosell_product_edit_form_shortcode() {
@@ -681,9 +669,9 @@ function taptosell_product_edit_form_shortcode() {
             </div>
 
             <div class="taptosell-form-section">
-                <div class="section-header"><h2><?php _e('2. Sales Information', 'taptosell-core'); ?></h2></div>
+                <div class="section-header"><h2><?php _e('2. Sales Information (Simple Product)', 'taptosell-core'); ?></h2></div>
                 <div class="section-content">
-                    <div class="form-grid-3" id="simple-product-fields" style="<?php echo $is_variable ? 'display: none;' : ''; ?>">
+                    <div class="form-grid-3" id="simple-product-fields">
                         <div class="form-row">
                             <label for="product_price"><?php _e('Your Price (RM)', 'taptosell-core'); ?></label>
                             <input type="number" step="0.01" id="product_price" name="product_price" value="<?php echo esc_attr($simple_price); ?>" <?php echo !$is_variable ? 'required' : ''; ?>>
@@ -697,28 +685,24 @@ function taptosell_product_edit_form_shortcode() {
                             <input type="number" step="1" id="product_stock" name="product_stock" value="<?php echo esc_attr($simple_stock); ?>" <?php echo !$is_variable ? 'required' : ''; ?>>
                         </div>
                     </div>
-                    <hr class="form-divider">
-                    <div class="form-row">
-                        <label class="switch-toggle">
-                            <input type="checkbox" id="enable-variations-toggle" name="enable_variations" <?php checked($is_variable); ?>>
-                            <span class="slider round"></span>
-                            <strong><?php _e('Enable Product Variations', 'taptosell-core'); ?></strong>
-                        </label>
-                    </div>
-                    <div id="variations-container" style="<?php echo $is_variable ? '' : 'display: none;'; ?>">
-                        <div id="variation-groups-wrapper">
-                            </div>
+                </div>
+            </div>
+
+            <div class="taptosell-form-section">
+                <div class="section-header"><h2><?php _e('3. Product Variations', 'taptosell-core'); ?></h2></div>
+                <div class="section-content">
+                    <div id="variations-container">
+                        <div id="variation-groups-wrapper"></div>
                         <button type="button" id="add-variation-group" class="taptosell-button secondary"><?php _e('+ Add Variation Type', 'taptosell-core'); ?></button>
                         <hr class="form-divider">
                         <h4><?php _e('Variation List', 'taptosell-core'); ?></h4>
-                        <div id="variation-list-table-wrapper">
-                            </div>
+                        <div id="variation-list-table-wrapper"></div>
                     </div>
                 </div>
             </div>
             
             <div class="taptosell-form-section">
-                 <div class="section-header"><h2><?php _e('3. Media', 'taptosell-core'); ?></h2></div>
+                 <div class="section-header"><h2><?php _e('4. Media', 'taptosell-core'); ?></h2></div>
                  <div class="section-content">
                     <div class="form-row">
                         <label><?php _e('Current Image', 'taptosell-core'); ?></label>
@@ -735,7 +719,7 @@ function taptosell_product_edit_form_shortcode() {
             </div>
 
             <div class="taptosell-form-section">
-                <div class="section-header"><h2><?php _e('4. Shipping', 'taptosell-core'); ?></h2></div>
+                <div class="section-header"><h2><?php _e('5. Shipping', 'taptosell-core'); ?></h2></div>
                 <div class="section-content">
                     <div class="form-row">
                         <label for="product_weight"><?php _e('Weight (kg)', 'taptosell-core'); ?></label>
