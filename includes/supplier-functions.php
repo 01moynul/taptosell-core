@@ -1024,3 +1024,52 @@ function taptosell_save_markup_field($user_id) {
 // Hook into the same save actions as the other profile fields
 add_action('personal_options_update', 'taptosell_save_markup_field');
 add_action('edit_user_profile_update', 'taptosell_save_markup_field');
+
+/**
+ * --- NEW: Handles the deletion of a product from the supplier dashboard. ---
+ * This function is hooked to 'init' and listens for the 'delete_product' action.
+ */
+function taptosell_handle_product_delete() {
+    // 1. Check if our specific action has been triggered in the URL.
+    if ( !isset($_GET['action']) || $_GET['action'] !== 'delete_product' || !isset($_GET['product_id']) ) {
+        return;
+    }
+
+    // 2. Security Check 1: Verify the nonce (the security token in the URL).
+    if ( !isset($_GET['security']) || !wp_verify_nonce($_GET['security'], 'taptosell_delete_product_nonce') ) {
+        wp_die('Security check failed. Please go back and try again.');
+    }
+
+    // 3. Security Check 2: Ensure the user is logged in and has basic editing rights.
+    if ( !is_user_logged_in() || !current_user_can('edit_posts') ) {
+        wp_die('You do not have permission to perform this action.');
+    }
+
+    $product_id = (int)$_GET['product_id'];
+    $current_user_id = get_current_user_id();
+
+    // 4. Security Check 3: Verify that the current user is the author of the product.
+    if ( get_post_field('post_author', $product_id) != $current_user_id ) {
+        wp_die('Permission denied. You can only delete your own products.');
+    }
+    
+    // 5. If all security checks pass, move the product to the trash.
+    // We use wp_trash_post() because it's safer than permanent deletion.
+    $trashed = wp_trash_post($product_id);
+
+    if ($trashed) {
+        // 6. Redirect back to the supplier dashboard with a success message.
+        $dashboard_page = taptosell_get_page_by_title('Supplier Dashboard');
+        if ($dashboard_page) {
+            // We use the same 'message' key that our shortcode already looks for.
+            $redirect_url = add_query_arg('message', 'product_deleted', get_permalink($dashboard_page->ID));
+            wp_redirect($redirect_url);
+            exit;
+        }
+    }
+    
+    // As a fallback, redirect to the previous page if something went wrong.
+    wp_redirect(wp_get_referer());
+    exit;
+}
+add_action('init', 'taptosell_handle_product_delete');
