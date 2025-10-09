@@ -187,6 +187,7 @@ function taptosell_prevent_dynamic_page_caching() {
         'My Orders',
         'Dropshipper Dashboard',
         'Supplier Dashboard',
+        'Operational Admin Dashboard', // <-- ADD THIS LINE
     ];
 
     // Check if the current request is for a single page.
@@ -272,6 +273,8 @@ add_action('wp_enqueue_scripts', 'taptosell_enqueue_oa_dashboard_scripts');
 // --- NEW (Phase 11): Admin Actions ---
 // This hook links our custom processing function to the "Mark as Processed" button URL.
 add_action('admin_post_taptosell_oa_process_withdrawal', 'taptosell_handle_oa_process_withdrawal');
+add_action('admin_post_taptosell_oa_approve_price', 'taptosell_handle_oa_approve_price');
+add_action('admin_post_taptosell_oa_reject_price', 'taptosell_handle_oa_reject_price');
 
 /**
  * --- REVISED: Dynamically Filter Menu Items Based on User Role ---

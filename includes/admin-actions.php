@@ -641,3 +641,71 @@ function taptosell_handle_oa_process_withdrawal() {
     wp_redirect($redirect_url);
     exit;
 }
+/**
+ * --- NEW (Phase 12): Handles approving a price change request from the OA dashboard. ---
+ */
+function taptosell_handle_oa_approve_price() {
+    // Security Checks
+    if (!isset($_GET['request_id']) || !wp_verify_nonce($_GET['_wpnonce'], 'oa_approve_price_' . $_GET['request_id'])) {
+        wp_die('Security check failed.');
+    }
+    if (!current_user_can('operational_admin')) {
+        wp_die('Permission denied.');
+    }
+
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'taptosell_price_changes';
+    $request_id = (int)$_GET['request_id'];
+
+    // Get the request details
+    $request = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $request_id));
+
+    if ($request) {
+        // 1. Update the product's actual price
+        update_post_meta($request->product_id, '_price', $request->new_price);
+
+        // 2. Update the request's status to 'approved'
+        $wpdb->update($table_name, ['status' => 'approved'], ['id' => $request_id]);
+
+        // 3. (Optional) Notify the supplier
+        taptosell_add_notification($request->supplier_id, 'Your price change request for product #' . $request->product_id . ' has been approved.');
+    }
+
+    // Redirect back to the OA dashboard with a success message
+    $redirect_url = get_permalink(get_option('taptosell_oa_dashboard_page_id'));
+    wp_redirect(add_query_arg('message', 'price_approved', $redirect_url . '#/price-requests'));
+    exit;
+}
+
+/**
+ * --- NEW (Phase 12): Handles rejecting a price change request from the OA dashboard. ---
+ */
+function taptosell_handle_oa_reject_price() {
+    // Security Checks
+    if (!isset($_GET['request_id']) || !wp_verify_nonce($_GET['_wpnonce'], 'oa_reject_price_' . $_GET['request_id'])) {
+        wp_die('Security check failed.');
+    }
+    if (!current_user_can('operational_admin')) {
+        wp_die('Permission denied.');
+    }
+
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'taptosell_price_changes';
+    $request_id = (int)$_GET['request_id'];
+
+    // Get the request details for the notification
+    $request = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $request_id));
+
+    if ($request) {
+        // 1. Update the request's status to 'rejected'
+        $wpdb->update($table_name, ['status' => 'rejected'], ['id' => $request_id]);
+
+        // 2. (Optional) Notify the supplier
+        taptosell_add_notification($request->supplier_id, 'Your price change request for product #' . $request->product_id . ' has been rejected.');
+    }
+    
+    // Redirect back to the OA dashboard with a success message
+    $redirect_url = get_permalink(get_option('taptosell_oa_dashboard_page_id'));
+    wp_redirect(add_query_arg('message', 'price_rejected', $redirect_url . '#/price-requests'));
+    exit;
+}

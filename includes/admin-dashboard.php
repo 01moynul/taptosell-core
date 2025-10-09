@@ -224,7 +224,7 @@ function taptosell_render_oa_users_view() {
  */
 function taptosell_oa_dashboard_shortcode() {
     ob_start();
-
+    // ... the rest of the function continues below
     // Determine which view to show. Default to 'dashboard' (the hub).
     $current_view = isset($_GET['view']) ? sanitize_key($_GET['view']) : 'dashboard';
     
@@ -251,6 +251,9 @@ function taptosell_oa_dashboard_shortcode() {
                 <li class="<?php echo ($current_view === 'withdrawals') ? 'active' : ''; ?>">
                     <a href="<?php echo esc_url(add_query_arg('view', 'withdrawals', $dashboard_url)); ?>">Withdrawals</a>
                 </li>
+                <li class="<?php echo ($current_view === 'price-requests') ? 'active' : ''; ?>">
+                    <a href="<?php echo esc_url(add_query_arg('view', 'price-requests', $dashboard_url)); ?>">Price Requests</a>
+                </li>
             </ul>
         </div>
 
@@ -267,6 +270,9 @@ function taptosell_oa_dashboard_shortcode() {
                 case 'withdrawals':
                     taptosell_render_oa_withdrawals_view();
                     break;
+                 case 'price-requests':
+                    taptosell_render_oa_price_requests_view();
+                    break;   
                 case 'dashboard':
                 default:
                     taptosell_render_oa_dashboard_hub();
@@ -457,4 +463,77 @@ function taptosell_render_oa_withdrawals_view() {
     } else {
         echo '<p>There are no pending withdrawal requests at this time.</p>';
     }
+}
+/**
+ * --- NEW (Phase 12): Renders the Price Change Requests view for the OA. ---
+ */
+function taptosell_render_oa_price_requests_view() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'taptosell_price_changes';
+
+    // --- Display any success/error messages ---
+    if (isset($_GET['message'])) {
+        if ($_GET['message'] === 'price_approved') {
+            echo '<div class="taptosell-notice success"><p>Price change request approved and product updated.</p></div>';
+        } elseif ($_GET['message'] === 'price_rejected') {
+            echo '<div class="taptosell-notice success"><p>Price change request has been rejected.</p></div>';
+        }
+    }
+
+    $pending_requests = $wpdb->get_results($wpdb->prepare("SELECT * FROM $table_name WHERE status = %s ORDER BY request_date ASC", 'pending'));
+    ?>
+    <h3>Manage Price Change Requests</h3>
+    <p>Review and approve or reject price change requests submitted by suppliers for their published products.</p>
+    
+    <table class="wp-list-table widefat fixed striped">
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Supplier</th>
+                <th>Old Price</th>
+                <th>New Price</th>
+                <th>Date Requested</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (!empty($pending_requests)) : ?>
+                <?php foreach ($pending_requests as $request) :
+                    $product = get_post($request->product_id);
+                    $supplier = get_user_by('id', $request->supplier_id);
+
+                    // Create secure action links
+                    $approve_nonce = wp_create_nonce('oa_approve_price_' . $request->id);
+                    $reject_nonce = wp_create_nonce('oa_reject_price_' . $request->id);
+                    $approve_link = admin_url('admin-post.php?action=taptosell_oa_approve_price&request_id=' . $request->id . '&_wpnonce=' . $approve_nonce);
+                    $reject_link = admin_url('admin-post.php?action=taptosell_oa_reject_price&request_id=' . $request->id . '&_wpnonce=' . $reject_nonce);
+                ?>
+                    <tr>
+                        <td>
+                            <?php if ($product) : ?>
+                                <a href="<?php echo get_edit_post_link($request->product_id); ?>" target="_blank">
+                                    <?php echo esc_html($product->post_title); ?>
+                                </a>
+                            <?php else : ?>
+                                Product #<?php echo esc_html($request->product_id); ?> (Not Found)
+                            <?php endif; ?>
+                        </td>
+                        <td><?php echo esc_html($supplier->display_name); ?></td>
+                        <td>RM <?php echo number_format($request->old_price, 2); ?></td>
+                        <td style="font-weight: bold; color: #d9534f;">RM <?php echo number_format($request->new_price, 2); ?></td>
+                        <td><?php echo date('Y-m-d H:i', strtotime($request->request_date)); ?></td>
+                        <td>
+                            <a href="<?php echo esc_url($approve_link); ?>" class="button button-primary">Approve</a>
+                            <a href="<?php echo esc_url($reject_link); ?>" class="button button-secondary">Reject</a>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php else : ?>
+                <tr>
+                    <td colspan="6">No pending price change requests.</td>
+                </tr>
+            <?php endif; ?>
+        </tbody>
+    </table>
+    <?php
 }
