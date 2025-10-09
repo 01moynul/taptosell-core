@@ -600,112 +600,122 @@ add_action('admin_post_taptosell_oa_reject_product', 'taptosell_handle_oa_produc
  * Linked to the "Mark as Processed" button in the OA dashboard.
  * Verifies the nonce, checks user caps, and updates the post status.
  */
+/**
+ * --- CORRECTED (Phase 12): Handles the processing of a withdrawal request. ---
+ * Linked to the "Mark as Processed" button in the OA dashboard.
+ * Verifies the nonce, checks user caps, and updates the post status.
+ */
 function taptosell_handle_oa_process_withdrawal() {
     // 1. Security Checks
-    if (!isset($_GET['request_id']) || !isset($_GET['_wpnonce'])) {
-        wp_die('Invalid request.');
-    }
-
+    if (!isset($_GET['request_id']) || !isset($_GET['_wpnonce'])) { wp_die('Invalid request.'); }
     $request_id = intval($_GET['request_id']);
     $nonce = sanitize_text_field($_GET['_wpnonce']);
-
-    if (!wp_verify_nonce($nonce, 'oa_process_withdrawal_' . $request_id)) {
-        wp_die('Security check failed.');
-    }
-
-    if (!current_user_can('operational_admin')) {
-        wp_die('You do not have permission to perform this action.');
-    }
+    if (!wp_verify_nonce($nonce, 'oa_process_withdrawal_' . $request_id)) { wp_die('Security check failed.'); }
+    if (!current_user_can('operational_admin')) { wp_die('You do not have permission to perform this action.'); }
 
     // 2. Update the Post Status
-    $post_updated = wp_update_post([
-        'ID'          => $request_id,
-        'post_status' => 'wd-processed',
-    ]);
+    $post_updated = wp_update_post(['ID' => $request_id, 'post_status' => 'wd-processed']);
 
     // 3. Redirect back to the dashboard
     $redirect_url = get_permalink(get_option('taptosell_oa_dashboard_page_id'));
-    if (!$redirect_url) {
-        // Fallback if the page ID isn't set for some reason
-        $redirect_url = home_url('/');
-    }
-
     if ($post_updated) {
-        // Add a success message to the URL
-        $redirect_url = add_query_arg('message', 'withdrawal_processed', $redirect_url . '#/withdrawals');
+        // CORRECTED REDIRECT LOGIC: Add query arg first, then the hash.
+        $redirect_url = add_query_arg('message', 'withdrawal_processed', $redirect_url);
+        $redirect_url .= '#/withdrawals';
     } else {
-        // Optional: Add an error message if the update fails
-        $redirect_url = add_query_arg('error', 'update_failed', $redirect_url . '#/withdrawals');
+        $redirect_url = add_query_arg('error', 'update_failed', $redirect_url);
+        $redirect_url .= '#/withdrawals';
     }
-
     wp_redirect($redirect_url);
     exit;
 }
+
 /**
- * --- NEW (Phase 12): Handles approving a price change request from the OA dashboard. ---
+ * --- CORRECTED (Phase 12): Handles approving a price change request from the OA dashboard. ---
  */
 function taptosell_handle_oa_approve_price() {
     // Security Checks
-    if (!isset($_GET['request_id']) || !wp_verify_nonce($_GET['_wpnonce'], 'oa_approve_price_' . $_GET['request_id'])) {
-        wp_die('Security check failed.');
-    }
-    if (!current_user_can('operational_admin')) {
-        wp_die('Permission denied.');
-    }
+    if (!isset($_GET['request_id']) || !wp_verify_nonce($_GET['_wpnonce'], 'oa_approve_price_' . $_GET['request_id'])) { wp_die('Security check failed.'); }
+    if (!current_user_can('operational_admin')) { wp_die('Permission denied.'); }
 
     global $wpdb;
     $table_name = $wpdb->prefix . 'taptosell_price_changes';
     $request_id = (int)$_GET['request_id'];
-
-    // Get the request details
     $request = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $request_id));
 
     if ($request) {
-        // 1. Update the product's actual price
         update_post_meta($request->product_id, '_price', $request->new_price);
-
-        // 2. Update the request's status to 'approved'
         $wpdb->update($table_name, ['status' => 'approved'], ['id' => $request_id]);
-
-        // 3. (Optional) Notify the supplier
         taptosell_add_notification($request->supplier_id, 'Your price change request for product #' . $request->product_id . ' has been approved.');
     }
 
-    // Redirect back to the OA dashboard with a success message
+    // Redirect back to the OA dashboard
     $redirect_url = get_permalink(get_option('taptosell_oa_dashboard_page_id'));
-    wp_redirect(add_query_arg('message', 'price_approved', $redirect_url . '#/price-requests'));
+    // CORRECTED REDIRECT LOGIC: Add query arg first, then the hash.
+    $redirect_url = add_query_arg('message', 'price_approved', $redirect_url);
+    wp_redirect($redirect_url . '#/price-requests');
     exit;
 }
 
 /**
- * --- NEW (Phase 12): Handles rejecting a price change request from the OA dashboard. ---
+ * --- CORRECTED (Phase 12): Handles rejecting a price change request from the OA dashboard. ---
  */
 function taptosell_handle_oa_reject_price() {
     // Security Checks
-    if (!isset($_GET['request_id']) || !wp_verify_nonce($_GET['_wpnonce'], 'oa_reject_price_' . $_GET['request_id'])) {
-        wp_die('Security check failed.');
-    }
-    if (!current_user_can('operational_admin')) {
-        wp_die('Permission denied.');
-    }
+    if (!isset($_GET['request_id']) || !wp_verify_nonce($_GET['_wpnonce'], 'oa_reject_price_' . $_GET['request_id'])) { wp_die('Security check failed.'); }
+    if (!current_user_can('operational_admin')) { wp_die('Permission denied.'); }
 
     global $wpdb;
     $table_name = $wpdb->prefix . 'taptosell_price_changes';
     $request_id = (int)$_GET['request_id'];
-
-    // Get the request details for the notification
     $request = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $request_id));
 
     if ($request) {
-        // 1. Update the request's status to 'rejected'
         $wpdb->update($table_name, ['status' => 'rejected'], ['id' => $request_id]);
-
-        // 2. (Optional) Notify the supplier
         taptosell_add_notification($request->supplier_id, 'Your price change request for product #' . $request->product_id . ' has been rejected.');
     }
     
-    // Redirect back to the OA dashboard with a success message
+    // Redirect back to the OA dashboard
     $redirect_url = get_permalink(get_option('taptosell_oa_dashboard_page_id'));
-    wp_redirect(add_query_arg('message', 'price_rejected', $redirect_url . '#/price-requests'));
+    // CORRECTED REDIRECT LOGIC: Add query arg first, then the hash.
+    $redirect_url = add_query_arg('message', 'price_rejected', $redirect_url);
+    wp_redirect($redirect_url . '#/price-requests');
+    exit;
+}
+
+/**
+ * --- CORRECTED (Phase 12): Handles saving settings from the frontend OA Dashboard. ---
+ */
+function taptosell_handle_oa_settings_save() {
+    // 1. Security Checks
+    if ( !isset($_POST['taptosell_oa_settings_nonce']) || !wp_verify_nonce($_POST['taptosell_oa_settings_nonce'], 'taptosell_oa_settings_actions') ) { wp_die('Security check failed.'); }
+    if (!current_user_can('operational_admin')) { wp_die('You do not have permission to perform this action.'); }
+
+    $base_redirect_url = get_permalink(get_option('taptosell_oa_dashboard_page_id'));
+    $redirect_url = '';
+
+    // 2. Check which button was clicked and perform the correct action
+    if (isset($_POST['regenerate_reg_key'])) {
+        $new_key = wp_generate_password(16, false);
+        update_option('taptosell_supplier_reg_key', $new_key);
+        $redirect_url = add_query_arg('message', 'key_regenerated', $base_redirect_url);
+
+    } elseif (isset($_POST['submit'])) {
+        if (isset($_POST['taptosell_platform_commission'])) {
+            $commission = sanitize_text_field($_POST['taptosell_platform_commission']);
+            update_option('taptosell_platform_commission', $commission);
+        }
+        $redirect_url = add_query_arg('message', 'settings_saved', $base_redirect_url);
+    }
+    
+    // 3. Redirect back to the settings tab
+    // CORRECTED REDIRECT LOGIC: Append the hash after the full URL with query args is built.
+    if (!empty($redirect_url)) {
+        wp_redirect($redirect_url . '#/settings');
+        exit;
+    }
+
+    // Fallback redirect if no button was detected
+    wp_redirect($base_redirect_url . '#/settings');
     exit;
 }

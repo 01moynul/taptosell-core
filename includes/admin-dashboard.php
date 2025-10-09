@@ -254,6 +254,9 @@ function taptosell_oa_dashboard_shortcode() {
                 <li class="<?php echo ($current_view === 'price-requests') ? 'active' : ''; ?>">
                     <a href="<?php echo esc_url(add_query_arg('view', 'price-requests', $dashboard_url)); ?>">Price Requests</a>
                 </li>
+                <li class="<?php echo ($current_view === 'settings') ? 'active' : ''; ?>">
+                    <a href="<?php echo esc_url(add_query_arg('view', 'settings', $dashboard_url)); ?>">Settings</a>
+                </li>
             </ul>
         </div>
 
@@ -272,7 +275,10 @@ function taptosell_oa_dashboard_shortcode() {
                     break;
                  case 'price-requests':
                     taptosell_render_oa_price_requests_view();
-                    break;   
+                    break; 
+                case 'settings':
+                    taptosell_render_oa_settings_view();
+                    break;      
                 case 'dashboard':
                 default:
                     taptosell_render_oa_dashboard_hub();
@@ -535,5 +541,71 @@ function taptosell_render_oa_price_requests_view() {
             <?php endif; ?>
         </tbody>
     </table>
+    <?php
+}
+/**
+ * --- NEW (Phase 12): Renders the platform settings view for the OA. ---
+ */
+function taptosell_render_oa_settings_view() {
+    // Check for any success messages from a form submission
+    if (isset($_GET['message'])) {
+        if ($_GET['message'] === 'settings_saved') {
+            echo '<div class="taptosell-notice success"><p>Settings have been saved successfully.</p></div>';
+        } elseif ($_GET['message'] === 'key_regenerated') {
+            echo '<div class="taptosell-notice success"><p>New supplier registration key has been generated.</p></div>';
+        }
+    }
+
+    // Get current settings values from the database
+    $commission = get_option('taptosell_platform_commission', 5);
+    $reg_key = get_option('taptosell_supplier_reg_key');
+    if (empty($reg_key)) {
+        $reg_key = wp_generate_password(16, false);
+        update_option('taptosell_supplier_reg_key', $reg_key);
+    }
+    $supplier_reg_page = get_page_by_title('Supplier Registration');
+    $reg_url = $supplier_reg_page ? get_permalink($supplier_reg_page->ID) : home_url('/supplier-registration/');
+    $full_reg_link = esc_url(add_query_arg('reg_key', $reg_key, $reg_url));
+    ?>
+    <h3>Platform Settings</h3>
+    <form action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="post">
+        <input type="hidden" name="action" value="taptosell_oa_save_settings">
+        <?php wp_nonce_field('taptosell_oa_settings_actions', 'taptosell_oa_settings_nonce'); ?>
+
+        <table class="form-table">
+            <tbody>
+                <tr>
+                    <th scope="row">
+                        <label for="taptosell_platform_commission">Platform Commission (%)</label>
+                    </th>
+                    <td>
+                        <input type="number" name="taptosell_platform_commission" id="taptosell_platform_commission" value="<?php echo esc_attr($commission); ?>" min="0" step="0.1" class="regular-text" />
+                        <p class="description">Enter the global commission percentage the platform takes from supplier prices.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <label for="taptosell_supplier_reg_key">Supplier Registration Key</label>
+                    </th>
+                    <td>
+                        <input type="text" id="taptosell_supplier_reg_key" value="<?php echo esc_attr($reg_key); ?>" class="regular-text" readonly />
+                        <p class="description">
+                            This is the private key for supplier registration.
+                            <br><strong>Current Registration Link:</strong><br>
+                            <code><?php echo $full_reg_link; ?></code>
+                        </p>
+                        <p style="margin-top: 15px;">
+                            <input type="submit" name="regenerate_reg_key" class="button button-secondary" value="Regenerate Key">
+                            <br><em><span style="color:red;">Warning:</span> This will immediately invalidate the current link.</em>
+                        </p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <p class="submit">
+            <input type="submit" name="submit" class="button button-primary" value="Save Settings">
+        </p>
+    </form>
     <?php
 }
