@@ -265,8 +265,7 @@ function taptosell_oa_dashboard_shortcode() {
                     taptosell_render_oa_products_view();
                     break;
                 case 'withdrawals':
-                     // Placeholder for now
-                    echo '<h3>Manage Pending Withdrawals</h3><p>The withdrawal request list will be here.</p>';
+                    taptosell_render_oa_withdrawals_view();
                     break;
                 case 'dashboard':
                 default:
@@ -368,4 +367,69 @@ function taptosell_render_oa_products_view() {
         </div>
     </div>
     <?php
+}
+/**
+ * --- NEW (Phase 11): Renders the Withdrawal Management view. ---
+ * Displays a list of pending withdrawal requests for the OA to process.
+ */
+function taptosell_render_oa_withdrawals_view() {
+    ?>
+    <h3>Manage Pending Withdrawals</h3>
+    <?php
+    // --- Display any success/error messages ---
+    if (isset($_GET['message']) && $_GET['message'] === 'withdrawal_processed') {
+        echo '<div class="taptosell-notice success"><p>Withdrawal request has been marked as processed.</p></div>';
+    }
+    ?>
+    <p>The following withdrawal requests have been submitted by suppliers and are awaiting processing.</p>
+    <?php
+
+    $args = [
+        'post_type'      => 'withdrawal_request',
+        'post_status'    => 'wd-pending',
+        'posts_per_page' => 20,
+        'orderby'        => 'date',
+        'order'          => 'ASC', // Show oldest first
+    ];
+    $pending_withdrawals_query = new WP_Query($args);
+
+    if ($pending_withdrawals_query->have_posts()) {
+        ?>
+        <table class="wp-list-table widefat fixed striped">
+            <thead>
+                <tr>
+                    <th>Request ID</th>
+                    <th>Supplier</th>
+                    <th>Amount</th>
+                    <th>Date Requested</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php while ($pending_withdrawals_query->have_posts()) : $pending_withdrawals_query->the_post(); 
+                    $request_id = get_the_ID();
+                    $supplier = get_user_by('id', get_the_author_meta('ID'));
+                    $amount = get_post_meta($request_id, '_withdrawal_amount', true);
+
+                    // Create a secure URL for the "process" action
+                    $process_nonce = wp_create_nonce('oa_process_withdrawal_' . $request_id);
+                    $process_link = admin_url('admin-post.php?action=taptosell_oa_process_withdrawal&request_id=' . $request_id . '&_wpnonce=' . $process_nonce);
+                ?>
+                    <tr>
+                        <td><strong>#<?php echo esc_html($request_id); ?></strong></td>
+                        <td><?php echo esc_html($supplier->display_name); ?></td>
+                        <td><strong>RM <?php echo number_format((float)$amount, 2); ?></strong></td>
+                        <td><?php echo get_the_date(); ?></td>
+                        <td>
+                            <a href="<?php echo esc_url($process_link); ?>" class="button button-primary" onclick="return confirm('Are you sure you have processed this payment? This action cannot be undone.');">Mark as Processed</a>
+                        </td>
+                    </tr>
+                <?php endwhile; ?>
+            </tbody>
+        </table>
+        <?php
+        wp_reset_postdata();
+    } else {
+        echo '<p>There are no pending withdrawal requests at this time.</p>';
+    }
 }

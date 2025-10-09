@@ -594,3 +594,50 @@ function taptosell_handle_oa_product_rejection() {
 }
 // Hook the new handler to its action.
 add_action('admin_post_taptosell_oa_reject_product', 'taptosell_handle_oa_product_rejection');
+
+/**
+ * --- NEW (Phase 11): Handles the processing of a withdrawal request. ---
+ * Linked to the "Mark as Processed" button in the OA dashboard.
+ * Verifies the nonce, checks user caps, and updates the post status.
+ */
+function taptosell_handle_oa_process_withdrawal() {
+    // 1. Security Checks
+    if (!isset($_GET['request_id']) || !isset($_GET['_wpnonce'])) {
+        wp_die('Invalid request.');
+    }
+
+    $request_id = intval($_GET['request_id']);
+    $nonce = sanitize_text_field($_GET['_wpnonce']);
+
+    if (!wp_verify_nonce($nonce, 'oa_process_withdrawal_' . $request_id)) {
+        wp_die('Security check failed.');
+    }
+
+    if (!current_user_can('operational_admin')) {
+        wp_die('You do not have permission to perform this action.');
+    }
+
+    // 2. Update the Post Status
+    $post_updated = wp_update_post([
+        'ID'          => $request_id,
+        'post_status' => 'wd-processed',
+    ]);
+
+    // 3. Redirect back to the dashboard
+    $redirect_url = get_permalink(get_option('taptosell_oa_dashboard_page_id'));
+    if (!$redirect_url) {
+        // Fallback if the page ID isn't set for some reason
+        $redirect_url = home_url('/');
+    }
+
+    if ($post_updated) {
+        // Add a success message to the URL
+        $redirect_url = add_query_arg('message', 'withdrawal_processed', $redirect_url . '#/withdrawals');
+    } else {
+        // Optional: Add an error message if the update fails
+        $redirect_url = add_query_arg('error', 'update_failed', $redirect_url . '#/withdrawals');
+    }
+
+    wp_redirect($redirect_url);
+    exit;
+}

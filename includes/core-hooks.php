@@ -269,6 +269,10 @@ function taptosell_enqueue_oa_dashboard_scripts() {
 }
 add_action('wp_enqueue_scripts', 'taptosell_enqueue_oa_dashboard_scripts');
 
+// --- NEW (Phase 11): Admin Actions ---
+// This hook links our custom processing function to the "Mark as Processed" button URL.
+add_action('admin_post_taptosell_oa_process_withdrawal', 'taptosell_handle_oa_process_withdrawal');
+
 /**
  * --- REVISED: Dynamically Filter Menu Items Based on User Role ---
  * This function uses a "whitelist" approach to show only the menu items
