@@ -192,6 +192,16 @@ function taptosell_handle_manual_order() {
             update_post_meta($new_order_id, '_product_id', $product_id);
             update_post_meta($new_order_id, '_order_cost', $order_cost);
             taptosell_add_wallet_transaction($dropshipper_id, -$order_cost, 'order_payment', 'Payment for Order #' . $new_order_id);
+            // --- REVISED: Deduct stock for non-variable products ---
+            if ( ! has_term('variable', 'product_type', $product_id) ) {
+                $current_stock = get_post_meta($product_id, '_stock_quantity', true);
+                // Ensure we have a numeric value before proceeding
+                if ( is_numeric($current_stock) ) {
+                    $new_stock = (int)$current_stock - 1; // Assuming order quantity is always 1
+                    update_post_meta($product_id, '_stock_quantity', $new_stock);
+                }
+            }
+            // --- End of revised block ---
         }
         $redirect_url = add_query_arg('order_status', 'success', wp_get_referer());
     } else {
@@ -302,6 +312,17 @@ function taptosell_handle_onhold_payment() {
     if ($balance >= $order_cost) {
         wp_update_post(['ID' => $order_id, 'post_status' => 'wc-processing']);
         taptosell_add_wallet_transaction($dropshipper_id, -$order_cost, 'order_payment', 'Payment for Order #' . $order_id);
+        // --- REVISED: Deduct stock for non-variable products ---
+        $product_id = get_post_meta($order_id, '_product_id', true);
+        if ( $product_id && ! has_term('variable', 'product_type', $product_id) ) {
+            $current_stock = get_post_meta($product_id, '_stock_quantity', true);
+            // Ensure we have a numeric value before proceeding
+            if ( is_numeric($current_stock) ) {
+                $new_stock = (int)$current_stock - 1; // Assuming order quantity is always 1
+                update_post_meta($product_id, '_stock_quantity', $new_stock);
+            }
+        }
+        // --- End of revised block ---
         // Add a "success" message to the URL
         $redirect_url = add_query_arg('payment_status', 'success', $redirect_url);
     } else {
