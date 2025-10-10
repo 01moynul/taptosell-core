@@ -73,6 +73,29 @@ function taptosell_handle_product_upload() {
         if ($product_id && !is_wp_error($product_id)) {
             // --- Save common product data (meta fields) ---
             if ($product_category > 0) { wp_set_post_terms($product_id, [$product_category], 'product_category'); }
+            // --- NEW: Handle Brand Assignment ---
+            $brand_name = isset($_POST['product_brand']) ? sanitize_text_field(trim($_POST['product_brand'])) : '';
+
+            // If the brand field is empty, default to "No Brand".
+            if (empty($brand_name)) {
+                $brand_name = 'No Brand';
+            }
+
+            // Check if the brand term already exists.
+            $term = term_exists($brand_name, 'brand');
+
+            if ($term !== 0 && $term !== null) {
+                // If the brand exists, assign it to the product using its term ID.
+                wp_set_post_terms($product_id, $term['term_id'], 'brand');
+            } else {
+                // If the brand does not exist, create it first.
+                $new_term = wp_insert_term($brand_name, 'brand');
+                if (!is_wp_error($new_term)) {
+                    // If the new brand was created successfully, assign it to the product.
+                    wp_set_post_terms($product_id, $new_term['term_id'], 'brand');
+                }
+            }
+            // --- End of Brand Handling ---
             update_post_meta($product_id, '_video_url', $product_video);
             update_post_meta($product_id, '_weight', $product_weight);
             update_post_meta($product_id, '_length', $product_length);
@@ -196,6 +219,29 @@ function taptosell_handle_product_update() {
 
         // --- Save common product data (meta fields) ---
         if ($product_category > 0) { wp_set_post_terms($product_id, [$product_category], 'product_category'); }
+        // --- NEW: Handle Brand Assignment ---
+        $brand_name = isset($_POST['product_brand']) ? sanitize_text_field(trim($_POST['product_brand'])) : '';
+
+        // If the brand field is empty, default to "No Brand".
+        if (empty($brand_name)) {
+            $brand_name = 'No Brand';
+        }
+
+        // Check if the brand term already exists.
+        $term = term_exists($brand_name, 'brand');
+
+        if ($term !== 0 && $term !== null) {
+            // If the brand exists, assign it to the product using its term ID.
+            wp_set_post_terms($product_id, $term['term_id'], 'brand');
+        } else {
+            // If the brand does not exist, create it first.
+            $new_term = wp_insert_term($brand_name, 'brand');
+            if (!is_wp_error($new_term)) {
+                // If the new brand was created successfully, assign it to the product.
+                wp_set_post_terms($product_id, $new_term['term_id'], 'brand');
+            }
+        }
+        // --- End of Brand Handling ---
         update_post_meta($product_id, '_video_url', $product_video);
         update_post_meta($product_id, '_weight', $product_weight);
         update_post_meta($product_id, '_length', $product_length);
@@ -319,11 +365,19 @@ function taptosell_add_new_product_form_shortcode() {
                         ?>
                     </div>
                     <div class="form-row">
+                        <label for="product_brand">Brand</label>
+                        <input type="text" id="product_brand" name="product_brand" class="input" placeholder="e.g., Nike, Adidas, etc.">
+                        <p class="description">Leave blank to set as "No Brand".</p>
+                    </div>
+                    <div class="form-row">
                         <label for="product_description"><?php _e('Product Description', 'taptosell-core'); ?></label>
                         <?php
                         wp_editor('', 'product_description', [
-                            'textarea_name' => 'product_description', 'media_buttons' => false,
-                            'textarea_rows' => 10, 'teeny' => true,
+                            'textarea_name' => 'product_description', // Specifies the 'name' attribute for the textarea
+                            'media_buttons' => false,                 // Hides the "Add Media" button
+                            'textarea_rows' => 10,                    // Sets the initial height of the editor
+                            'teeny'         => true,                  // Shows a simplified version of the editor toolbar
+                            'quicktags'     => false                  // --- THIS IS THE NEW LINE: It disables the "Text" tab ---
                         ]);
                         ?>
                     </div>
@@ -660,6 +714,15 @@ function taptosell_product_edit_form_shortcode() {
                             'hide_empty' => 0, 'class' => 'taptosell-select'
                         ]);
                         ?>
+                    </div>
+                    <div class="form-row">
+                        <label for="product_brand">Brand</label>
+                        <?php
+                        $brand_terms = get_the_terms($product_id, 'brand');
+                        $brand_name = (!empty($brand_terms)) ? $brand_terms[0]->name : '';
+                        ?>
+                        <input type="text" id="product_brand" name="product_brand" class="input" value="<?php echo esc_attr($brand_name); ?>" placeholder="e.g., Nike, Adidas, etc.">
+                        <p class="description">Leave blank to set as "No Brand".</p>
                     </div>
                     <div class="form-row">
                         <label for="product_description"><?php _e('Product Description', 'taptosell-core'); ?></label>

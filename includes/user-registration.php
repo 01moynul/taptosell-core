@@ -77,6 +77,7 @@ function taptosell_handle_registration_form() {
                 wp_update_user(['ID' => $user_id, 'display_name' => $pic_name]);
                 
                 update_user_meta($user_id, 'company_name', sanitize_text_field($_POST['company_name']));
+                update_user_meta($user_id, 'ssm_number', sanitize_text_field($_POST['ssm_number']));
                 update_user_meta($user_id, 'pic_name', $pic_name);
                 update_user_meta($user_id, 'mobile_number', sanitize_text_field($_POST['mobile']));
                 update_user_meta($user_id, 'billing_address_1', sanitize_textarea_field($_POST['address']));
@@ -332,6 +333,9 @@ function taptosell_supplier_registration_form_shortcode() {
             <div class="form-column">
                 <p><label for="company_name">Company Name (As per SSM)</label>
                    <input type="text" name="company_name" id="company_name" required></p>
+
+                <p><label for="ssm_number">SSM Number (Company Registration No.) <span class="required">*</span></label>
+                    <input type="text" name="ssm_number" id="ssm_number" class="input" required></p>
                 
                 <p><label for="pic_name">Person in Charge (PIC) Name</label>
                    <input type="text" name="pic_name" id="pic_name" required></p>

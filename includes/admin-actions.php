@@ -455,6 +455,7 @@ function taptosell_get_user_details_ajax_handler() {
         'full_name' => 'Full Name',
         'pic_name' => 'Person in Charge',
         'company_name' => 'Company Name',
+        'ssm_number' => 'SSM Number',
         'ic_number' => 'IC Number',
         'mobile_number' => 'Mobile Number',
         'billing_address_1' => 'Address',
