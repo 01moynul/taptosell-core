@@ -726,7 +726,15 @@ function taptosell_product_edit_form_shortcode() {
                     </div>
                     <div class="form-row">
                         <label for="product_description"><?php _e('Product Description', 'taptosell-core'); ?></label>
-                        <?php wp_editor($product_description, 'product_description', ['textarea_name' => 'product_description']); ?>
+                        <?php
+                        wp_editor($product_description, 'product_description', [
+                            'textarea_name' => 'product_description', // Specifies the 'name' attribute for the textarea
+                            'media_buttons' => false,                 // Hides the "Add Media" button
+                            'textarea_rows' => 10,                    // Sets the initial height of the editor
+                            'teeny'         => true,                  // Shows a simplified version of the editor toolbar
+                            'quicktags'     => false                  // --- THIS IS THE FIX: It disables the "Text" tab ---
+                        ]);
+                        ?>
                     </div>
                 </div>
             </div>
