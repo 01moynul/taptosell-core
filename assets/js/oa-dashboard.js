@@ -56,8 +56,23 @@ jQuery(document).ready(function($) {
             },
             success: function(response) {
                 if (response.success) {
+                    // --- REVISED UI FEEDBACK ---
+                    // 1. Visually update the status to "Approved".
+                    const statusCell = userRow.find('td:nth-child(5)'); // 5th column is Status
+                    statusCell.html('<span style="color: green; font-weight: bold;">Approved</span>');
+
+                    // 2. Remove the approve/reject buttons, leaving only "Details".
+                    const actionsCell = userRow.find('td:nth-child(6)'); // 6th column is Actions
+                    actionsCell.find('.oa-approve-user-btn').remove();
+                    actionsCell.find('.oa-reject-user-btn').remove();
+                    
+                    // 3. Optional: Briefly highlight the row to show it was updated.
+                    userRow.css('background-color', '#d4edda').animate({ backgroundColor: 'transparent' }, 1500);
+
+                    // 4. Disable the clicked button to prevent re-clicking during animation.
+                    button.prop('disabled', true).text('Approved');
+
                     alert('User approved successfully.');
-                    userRow.fadeOut(500, function() { $(this).remove(); });
                 } else {
                     alert('Error: ' + response.data.message);
                     button.prop('disabled', false).text('Approve');
