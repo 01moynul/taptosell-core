@@ -360,60 +360,96 @@ function taptosell_handle_price_request_actions() {
 }
 add_action('admin_init', 'taptosell_handle_price_request_actions');
 
+// In: /includes/admin-actions.php
+
 /**
- * --- UPDATED (Phase 11): Handles user approval/rejection from the front-end OA Dashboard. ---
- * Now includes the rejection reason in the notification email.
+ * --- NEW (AJAX): Handles user approval from the OA Dashboard. ---
+ * Replaces the old page-reload method.
  */
-function taptosell_handle_oa_user_actions() {
-    if ( !isset($_GET['action']) || !is_page('operational-admin-dashboard') ) { return; }
-    if ( !current_user_can('edit_users') ) { return; }
-
-    $action = sanitize_key($_GET['action']);
-    $user_id = isset($_GET['user_id']) ? (int)$_GET['user_id'] : 0;
-    
-    $redirect_url = add_query_arg('view', 'users', get_permalink(get_the_ID()));
-
-    // --- Handle Approve Action ---
-    if ($action === 'approve_user' && $user_id > 0) {
-        check_admin_referer('oa_approve_user_' . $user_id);
-        update_user_meta($user_id, '_account_status', 'approved');
-        $user_info = get_userdata($user_id);
-        wp_mail($user_info->user_email, 'Your Account has been Approved', 'Congratulations! Your TapToSell account has been approved. You can now log in and start using the platform.');
-        wp_redirect(add_query_arg('message', 'user_approved', $redirect_url));
-        exit;
+function taptosell_approve_user_ajax_handler() {
+    // Security Checks: Verifies the request is legitimate and the user has permission.
+    check_ajax_referer('taptosell_oa_user_actions_nonce', 'security');
+    if (!current_user_can('edit_users')) {
+        wp_send_json_error(['message' => 'Permission denied.']);
     }
 
-    // --- Handle Reject Action ---
-    if ($action === 'reject_user' && $user_id > 0) {
-        check_admin_referer('oa_reject_user_' . $user_id);
-        require_once(ABSPATH.'wp-admin/includes/user.php');
-        
-        $user_info = get_userdata($user_id);
-        $user_email = $user_info->user_email;
-        
-        // --- NEW: Get the rejection reason from the URL ---
-        $rejection_reason = isset($_GET['reason']) ? sanitize_textarea_field(urldecode($_GET['reason'])) : '';
-        $email_message = "We regret to inform you that your application for a TapToSell account has been rejected at this time.";
-        if (!empty($rejection_reason)) {
-            $email_message .= "\n\nReason: " . $rejection_reason;
-        }
+    $user_id = isset($_POST['user_id']) ? intval($_POST['user_id']) : 0;
+    if ($user_id <= 0) {
+        wp_send_json_error(['message' => 'Invalid user ID.']);
+    }
 
+    // Update the user's status to 'approved'.
+    update_user_meta($user_id, '_account_status', 'approved');
+    
+    // Notify the user via email that their account is ready.
+    $user_info = get_userdata($user_id);
+    if ($user_info) {
+        wp_mail(
+            $user_info->user_email,
+            'Your Account has been Approved',
+            'Congratulations! Your TapToSell account has been approved. You can now log in and start using the platform.'
+        );
+    }
+
+    // Send a success message back to the dashboard.
+    wp_send_json_success(['message' => 'User approved successfully.']);
+}
+add_action('wp_ajax_taptosell_approve_user', 'taptosell_approve_user_ajax_handler');
+
+/**
+ * --- NEW (AJAX): Handles user rejection from the OA Dashboard. ---
+ * Replaces the old page-reload method.
+ */
+function taptosell_reject_user_ajax_handler() {
+    // Security Checks
+    check_ajax_referer('taptosell_oa_user_actions_nonce', 'security');
+    if (!current_user_can('edit_users')) {
+        wp_send_json_error(['message' => 'Permission denied.']);
+    }
+
+    // Get the user ID and the rejection reason from the AJAX request.
+    $user_id = isset($_POST['user_id']) ? intval($_POST['user_id']) : 0;
+    $reason = isset($_POST['reason']) ? sanitize_textarea_field($_POST['reason']) : 'No reason provided.';
+
+    if ($user_id <= 0) {
+        wp_send_json_error(['message' => 'Invalid user ID.']);
+    }
+    
+    // We need this file to safely delete the user.
+    require_once(ABSPATH . 'wp-admin/includes/user.php');
+    $user_info = get_userdata($user_id);
+
+    if ($user_info) {
+        // Construct and send the rejection email.
+        $email_message = "We regret to inform you that your application for a TapToSell account has been rejected at this time.";
+        $email_message .= "\n\nReason: " . $reason;
+        wp_mail($user_info->user_email, 'Your Account Application Status', $email_message);
+        
+        // Delete the user from the database.
         wp_delete_user($user_id);
-        wp_mail($user_email, 'Your Account Application', $email_message);
-        wp_redirect(add_query_arg('message', 'user_rejected', $redirect_url));
-        exit;
+
+        // Send a success message back.
+        wp_send_json_success(['message' => 'User rejected and deleted.']);
+    } else {
+        wp_send_json_error(['message' => 'User not found.']);
     }
 }
-add_action('template_redirect', 'taptosell_handle_oa_user_actions');
+add_action('wp_ajax_taptosell_reject_user', 'taptosell_reject_user_ajax_handler');
+// In: /includes/admin-actions.php
+
 /**
- * --- NEW (Phase 11): AJAX handler to fetch and display user details for the OA dashboard. ---
+ * --- UPDATED (AJAX): Fetches and displays user details for the OA dashboard modal. ---
+ * Now uses the unified nonce for all user-related actions.
  */
 function taptosell_get_user_details_ajax_handler() {
-    // Security checks: ensure a user is logged in, has the right permissions, and the request is valid.
+    // --- SECURITY NONCE UPDATED ---
+    // Was: 'oa_view_user_details_nonce'
+    // Now: 'taptosell_oa_user_actions_nonce'
+    check_ajax_referer('taptosell_oa_user_actions_nonce', 'security');
+
     if ( !is_user_logged_in() || !current_user_can('edit_users') ) {
         wp_send_json_error(['message' => 'Permission denied.']);
     }
-    check_ajax_referer('oa_view_user_details_nonce', 'security');
 
     $user_id = isset($_POST['user_id']) ? intval($_POST['user_id']) : 0;
     if ($user_id <= 0) {
@@ -484,117 +520,74 @@ function taptosell_get_user_details_ajax_handler() {
     // Send the HTML back to our JavaScript as a success response
     wp_send_json_success(['html' => $html_output]);
 }
-// Hook our function to WordPress's AJAX actions
+// This line remains the same
 add_action('wp_ajax_taptosell_get_user_details', 'taptosell_get_user_details_ajax_handler');
 
-/**
- * --- CORRECTED (Phase 11): Handles product approval from the OA Dashboard. ---
- * Uses a more specific action name to prevent nonce conflicts.
- */
-function taptosell_handle_oa_product_approval() {
-    // Check if a product ID and a nonce were provided in the URL.
-    if ( !isset($_GET['product_id']) || !isset($_GET['_wpnonce']) ) {
-        wp_die('Missing required parameters.');
-    }
-
-    $product_id = intval($_GET['product_id']);
-    
-    // Verify the nonce. This is the crucial security check.
-    if ( !wp_verify_nonce($_GET['_wpnonce'], 'oa_approve_product_' . $product_id) ) {
-        wp_die('Security check failed. Please go back and try again.');
-    }
-
-    // Check if the current user has the authority to publish products.
-    if ( !current_user_can('publish_products') ) {
-        wp_die('You do not have sufficient permissions to approve products.');
-    }
-
-    if ( $product_id > 0 ) {
-        // Update the product's status to 'publish'.
-        wp_update_post([
-            'ID'          => $product_id,
-            'post_status' => 'publish',
-        ]);
-        
-        // Notify the supplier that their product was approved.
-        $supplier_id = get_post_field('post_author', $product_id);
-        $product_title = get_the_title($product_id);
-        $dashboard_page = get_page_by_title('Supplier Dashboard');
-        $dashboard_link = $dashboard_page ? get_permalink($dashboard_page->ID) : '';
-        $message = 'Congratulations! Your product "' . esc_html($product_title) . '" has been approved.';
-        taptosell_add_notification($supplier_id, $message, $dashboard_link);
-    }
-
-    // Redirect back to the product management dashboard with a success message.
-    $redirect_url = add_query_arg([
-        'view' => 'products',
-        'message' => 'product_approved'
-    ], get_permalink(get_page_by_path('operational-admin-dashboard')));
-    
-    wp_redirect($redirect_url);
-    exit;
-}
-// CORRECTED HOOK: The action name is now more specific.
-add_action('admin_post_taptosell_oa_approve_product', 'taptosell_handle_oa_product_approval');
+// In: /includes/admin-actions.php
 
 /**
- * --- CORRECTED (Phase 11): Handles product rejection from the OA Dashboard. ---
- * Now correctly sets the post status to 'rejected'.
+ * --- NEW (AJAX): Handles product approval from the OA Dashboard. ---
  */
-function taptosell_handle_oa_product_rejection() {
-    // Security and permission checks
-    if ( !isset($_GET['product_id']) || !isset($_GET['_wpnonce']) || !isset($_GET['reason']) ) {
-        wp_die('Missing required parameters.');
-    }
-    if ( !current_user_can('edit_others_products') ) {
-        wp_die('You do not have sufficient permissions to reject products.');
+function taptosell_approve_product_ajax_handler() {
+    // Security Checks
+    check_ajax_referer('taptosell_oa_product_actions_nonce', 'security');
+    if (!current_user_can('publish_products')) {
+        wp_send_json_error(['message' => 'Permission denied.']);
     }
 
-    $product_id = intval($_GET['product_id']);
+    $product_id = isset($_POST['product_id']) ? intval($_POST['product_id']) : 0;
+    if ($product_id <= 0) {
+        wp_send_json_error(['message' => 'Invalid product ID.']);
+    }
+
+    // Set the product's status to 'publish', making it live.
+    wp_update_post(['ID' => $product_id, 'post_status' => 'publish']);
     
-    // Verify the nonce security token
-    if ( !wp_verify_nonce($_GET['_wpnonce'], 'oa_reject_product_' . $product_id) ) {
-        wp_die('Security check failed. Please go back and try again.');
-    }
+    // Send a notification to the supplier.
+    $supplier_id = get_post_field('post_author', $product_id);
+    $product_title = get_the_title($product_id);
+    $dashboard_page = taptosell_get_page_by_title('Supplier Dashboard');
+    $dashboard_link = $dashboard_page ? get_permalink($dashboard_page->ID) : home_url();
+    $message = 'Congratulations! Your product "' . esc_html($product_title) . '" has been approved.';
+    taptosell_add_notification($supplier_id, $message, $dashboard_link);
 
-    // Sanitize the rejection reason
-    $rejection_reason = sanitize_textarea_field(urldecode($_GET['reason']));
-
-    if ( $product_id > 0 ) {
-        // --- CORRECTED LOGIC: Set the product status to 'rejected'. ---
-        wp_update_post([
-            'ID'          => $product_id,
-            'post_status' => 'rejected',
-        ]);
-        
-        // Save the rejection reason as post meta for the supplier to see.
-        if (!empty($rejection_reason)) {
-            update_post_meta($product_id, '_rejection_reason', $rejection_reason);
-        }
-
-        // Notify the supplier that their product was rejected, including the reason.
-        $supplier_id = get_post_field('post_author', $product_id);
-        $product_title = get_the_title($product_id);
-        $dashboard_page = get_page_by_title('Supplier Dashboard');
-        $dashboard_link = $dashboard_page ? get_permalink($dashboard_page->ID) : '';
-        $message = 'Your product "' . esc_html($product_title) . '" was not approved.'; // Simplified message
-        if (!empty($rejection_reason)) {
-            $message .= ' Reason: ' . esc_html($rejection_reason);
-        }
-        taptosell_add_notification($supplier_id, $message, $dashboard_link);
-    }
-
-    // Redirect back to the product management dashboard with a success message.
-    $redirect_url = add_query_arg([
-        'view' => 'products',
-        'message' => 'product_rejected'
-    ], get_permalink(get_page_by_path('operational-admin-dashboard')));
-    
-    wp_redirect($redirect_url);
-    exit;
+    wp_send_json_success(['message' => 'Product approved.']);
 }
-// Hook the new handler to its action.
-add_action('admin_post_taptosell_oa_reject_product', 'taptosell_handle_oa_product_rejection');
+add_action('wp_ajax_taptosell_approve_product', 'taptosell_approve_product_ajax_handler');
+
+/**
+ * --- NEW (AJAX): Handles product rejection from the OA Dashboard. ---
+ */
+function taptosell_reject_product_ajax_handler() {
+    // Security Checks
+    check_ajax_referer('taptosell_oa_product_actions_nonce', 'security');
+    if (!current_user_can('edit_others_products')) {
+        wp_send_json_error(['message' => 'Permission denied.']);
+    }
+
+    $product_id = isset($_POST['product_id']) ? intval($_POST['product_id']) : 0;
+    $reason = isset($_POST['reason']) ? sanitize_textarea_field($_POST['reason']) : 'No reason provided.';
+
+    if ($product_id <= 0) {
+        wp_send_json_error(['message' => 'Invalid product ID.']);
+    }
+    
+    // Set the product's status to 'rejected'.
+    wp_update_post(['ID' => $product_id, 'post_status' => 'rejected']);
+    // Store the reason for the supplier to see.
+    update_post_meta($product_id, '_rejection_reason', $reason);
+    
+    // Notify the supplier of the rejection and provide the reason.
+    $supplier_id = get_post_field('post_author', $product_id);
+    $product_title = get_the_title($product_id);
+    $dashboard_page = taptosell_get_page_by_title('Supplier Dashboard');
+    $dashboard_link = $dashboard_page ? get_permalink($dashboard_page->ID) : home_url();
+    $message = 'Your product "' . esc_html($product_title) . '" was not approved. Reason: ' . esc_html($reason);
+    taptosell_add_notification($supplier_id, $message, $dashboard_link);
+    
+    wp_send_json_success(['message' => 'Product rejected.']);
+}
+add_action('wp_ajax_taptosell_reject_product', 'taptosell_reject_product_ajax_handler');
 
 /**
  * --- NEW (Phase 11): Handles the processing of a withdrawal request. ---
@@ -763,12 +756,18 @@ function taptosell_handle_oa_update_commission() {
 // Hook the new handler to its action.
 add_action( 'admin_post_taptosell_oa_update_commission', 'taptosell_handle_oa_update_commission' );
 
+// In: /includes/admin-actions.php
+
 /**
- * --- NEW (Phase 12): AJAX handler to fetch full product details for the OA dashboard modal. ---
+ * --- UPDATED (AJAX): Fetches full product details for the OA dashboard modal. ---
+ * Now uses the unified nonce for all product-related actions.
  */
 function taptosell_get_product_details_ajax_handler() {
-    // 1. Security checks
-    check_ajax_referer('oa_view_product_details_nonce', 'security');
+    // --- SECURITY NONCE UPDATED ---
+    // Was: 'oa_view_product_details_nonce'
+    // Now: 'taptosell_oa_product_actions_nonce'
+    check_ajax_referer('taptosell_oa_product_actions_nonce', 'security');
+    
     if (!current_user_can('operational_admin')) {
         wp_send_json_error(['message' => 'Permission denied.']);
     }
@@ -783,13 +782,13 @@ function taptosell_get_product_details_ajax_handler() {
         wp_send_json_error(['message' => 'Product not found.']);
     }
 
-    // 2. Gather all product data
+    // Gather all product data
     $supplier = get_user_by('id', $product->post_author);
     $is_variable = has_term('variable', 'product_type', $product_id);
     $commission_rate = get_post_meta($product_id, '_taptosell_commission_rate', true);
     $global_commission_rate = get_option('taptosell_platform_commission', 5);
 
-    // 3. Start building the HTML output
+    // Start building the HTML output
     ob_start();
     ?>
     <div class="product-details-grid">
@@ -858,7 +857,8 @@ function taptosell_get_product_details_ajax_handler() {
     <?php
     $html_output = ob_get_clean();
 
-    // 4. Send the HTML back to the AJAX request
+    // Send the HTML back to the AJAX request
     wp_send_json_success(['html' => $html_output]);
 }
+// This line remains the same
 add_action('wp_ajax_taptosell_get_product_details', 'taptosell_get_product_details_ajax_handler');

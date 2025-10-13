@@ -1,142 +1,266 @@
-/**
- * TapToSell OA Dashboard Scripts
- *
- * This file handles the interactive elements on the Operational Admin dashboard.
- * - User rejection and details modals.
- * - Product details modal via AJAX.
- *
- * @version 1.4.0 (Phase 12 Update)
- */
+// In: /assets/js/oa-dashboard.js
+
 jQuery(document).ready(function($) {
 
     // =================================================================
-    // 1. USER MANAGEMENT MODALS
+    // 1. USER MANAGEMENT ACTIONS (AJAX)
     // =================================================================
 
-    // --- User Rejection Modal ---
-    const userRejectionModal = $('#tts-rejection-modal');
-    if (userRejectionModal.length) {
-        // ... (This section remains unchanged)
-        const userReasonText = $('#tts-rejection-reason-text');
-        const userConfirmBtn = $('#tts-rejection-confirm');
+    // --- User Details Modal ---
+    const userDetailsModal = $('#tts-user-details-modal');
+    $('body').on('click', '.view-user-details', function() {
+        const userId = $(this).data('user-id');
+        const modalBody = userDetailsModal.find('.taptosell-modal-body');
+        modalBody.html('<p>Loading details...</p>'); // Reset modal content
+        userDetailsModal.show();
 
-        $('body').on('click', '.oa-reject-user-btn', function(e) {
-            e.preventDefault();
-            const rejectionUrl = $(this).data('reject-url');
-            userConfirmBtn.data('base-url', rejectionUrl);
-            userReasonText.val('');
-            userRejectionModal.show();
-        });
-
-        userConfirmBtn.on('click', function() {
-            const baseUrl = $(this).data('base-url');
-            const reason = userReasonText.val();
-            const finalUrl = baseUrl + '&reason=' + encodeURIComponent(reason);
-            window.location.href = finalUrl;
-        });
-
-        $('#tts-rejection-modal .tts-modal-close, #tts-rejection-cancel').on('click', function() {
-            userRejectionModal.hide();
-        });
-    }
-
-
-    // --- User Details Modal (AJAX) ---
-    const userDetailsModal = $('#tts-details-modal');
-    if (userDetailsModal.length) {
-        // ... (This section remains unchanged)
-        const userDetailsContent = $('#tts-details-modal-content');
-
-        $('body').on('click', '.oa-user-details-btn', function(e) {
-            e.preventDefault();
-            const userId = $(this).data('userid');
-            
-            userDetailsContent.html('<p>Loading details...</p>');
-            userDetailsModal.show();
-
-            $.ajax({
-                url: tts_oa_data.ajax_url,
-                type: 'POST',
-                data: {
-                    action: 'taptosell_get_user_details',
-                    security: tts_oa_data.user_details_nonce,
-                    user_id: userId
-                },
-                success: function(response) {
-                    if (response.success) {
-                        userDetailsContent.html(response.data.html);
-                    } else {
-                        userDetailsContent.html('<p>Error: ' + (response.data.message || 'Unknown error.') + '</p>');
-                    }
-                },
-                error: function() {
-                    userDetailsContent.html('<p>An unexpected error occurred. Please try again.</p>');
+        $.ajax({
+            url: taptosell_ajax_object.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'taptosell_get_user_details',
+                security: taptosell_ajax_object.user_actions_nonce,
+                user_id: userId
+            },
+            success: function(response) {
+                if (response.success) {
+                    modalBody.html(response.data.html);
+                } else {
+                    modalBody.html('<p class="error-message">' + response.data.message + '</p>');
                 }
-            });
+            },
+            error: function() {
+                modalBody.html('<p class="error-message">An unexpected error occurred. Please try again.</p>');
+            }
         });
+    });
 
-        userDetailsModal.find('.tts-modal-close').on('click', function() {
-            userDetailsModal.hide();
-        });
-    }
+    // --- User Approval ---
+    $('body').on('click', '.oa-approve-user-btn', function() {
+        if (!confirm('Are you sure you want to approve this user?')) {
+            return;
+        }
+        const button = $(this);
+        const userId = button.data('user-id');
+        const userRow = $('#user-row-' + userId);
 
+        button.prop('disabled', true).text('Approving...');
 
-    // =================================================================
-    // 2. PRODUCT MANAGEMENT MODAL (UPDATED)
-    // =================================================================
-
-    // --- Product Details Modal (AJAX) ---
-    const productDetailsModal = $('#productDetailsModal');
-    if (productDetailsModal.length) {
-        
-        $('body').on('click', '.view-product-details', function(e) {
-            e.preventDefault();
-
-            const productId = $(this).data('product-id');
-            const modalBody = productDetailsModal.find('.modal-body');
-            const modalTitle = productDetailsModal.find('#productDetailsModalLabel');
-            
-            modalTitle.text('Product Details (ID: ' + productId + ')');
-            modalBody.html('<p>Loading product details...</p>');
-
-            // --- NEW: Manually show the modal overlay ---
-            productDetailsModal.show();
-
-            $.ajax({
-                url: tts_oa_data.ajax_url,
-                type: 'POST',
-                data: {
-                    action: 'taptosell_get_product_details',
-                    product_id: productId,
-                    security: tts_oa_data.product_details_nonce
-                },
-                success: function(response) {
-                    if (response.success) {
-                        modalBody.html(response.data.html);
-                    } else {
-                        modalBody.html('<p class="error-message">' + response.data.message + '</p>');
-                    }
-                },
-                error: function() {
-                    modalBody.html('<p class="error-message">An error occurred while fetching product details. Please try again.</p>');
+        $.ajax({
+            url: taptosell_ajax_object.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'taptosell_approve_user',
+                security: taptosell_ajax_object.user_actions_nonce,
+                user_id: userId
+            },
+            success: function(response) {
+                if (response.success) {
+                    alert('User approved successfully.');
+                    userRow.fadeOut(500, function() { $(this).remove(); });
+                } else {
+                    alert('Error: ' + response.data.message);
+                    button.prop('disabled', false).text('Approve');
                 }
-            });
+            },
+            error: function() {
+                alert('An unexpected server error occurred. Please try again.');
+                button.prop('disabled', false).text('Approve');
+            }
         });
+    });
 
-        // --- NEW: Add a click handler for the close button ---
-        productDetailsModal.find('.taptosell-modal-close').on('click', function() {
-            productDetailsModal.hide();
+    // --- User Rejection ---
+    const userRejectionModal = $('#tts-user-rejection-modal');
+    const userReasonText = $('#tts-user-rejection-reason-text');
+    const userConfirmBtn = $('#tts-user-rejection-confirm');
+
+    // Show the rejection modal
+    $('body').on('click', '.oa-reject-user-btn', function() {
+        const userId = $(this).data('user-id');
+        userConfirmBtn.data('user-id', userId); // Store user ID on the confirm button
+        userReasonText.val('');
+        userRejectionModal.show();
+    });
+
+    // Handle the confirm rejection click
+    userConfirmBtn.on('click', function() {
+        const button = $(this);
+        const userId = button.data('user-id');
+        const reason = userReasonText.val();
+        const userRow = $('#user-row-' + userId);
+
+        if (reason.trim() === '') {
+            alert('Please provide a reason for rejection.');
+            return;
+        }
+
+        button.prop('disabled', true).text('Rejecting...');
+
+        $.ajax({
+            url: taptosell_ajax_object.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'taptosell_reject_user',
+                security: taptosell_ajax_object.user_actions_nonce,
+                user_id: userId,
+                reason: reason
+            },
+            success: function(response) {
+                if (response.success) {
+                    alert('User rejected and deleted.');
+                    userRejectionModal.hide();
+                    userRow.fadeOut(500, function() { $(this).remove(); });
+                } else {
+                    alert('Error: ' + response.data.message);
+                }
+            },
+            error: function() {
+                alert('An unexpected server error occurred. Please try again.');
+            },
+            complete: function() {
+                button.prop('disabled', false).text('Confirm Rejection');
+            }
         });
-    }
+    });
+
+
+    // =================================================================
+    // 2. PRODUCT MANAGEMENT ACTIONS (AJAX)
+    // =================================================================
+
+    // --- Product Details Modal ---
+    const productDetailsModal = $('#tts-product-details-modal');
+    $('body').on('click', '.view-product-details', function() {
+        const productId = $(this).data('product-id');
+        const modalBody = productDetailsModal.find('.taptosell-modal-body');
+        modalBody.html('<p>Loading details...</p>');
+        productDetailsModal.show();
+
+        $.ajax({
+            url: taptosell_ajax_object.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'taptosell_get_product_details',
+                security: taptosell_ajax_object.product_actions_nonce,
+                product_id: productId
+            },
+            success: function(response) {
+                if (response.success) {
+                    modalBody.html(response.data.html);
+                } else {
+                    modalBody.html('<p class="error-message">' + response.data.message + '</p>');
+                }
+            },
+            error: function() {
+                modalBody.html('<p class="error-message">An unexpected error occurred. Please try again.</p>');
+            }
+        });
+    });
+    
+    // --- Product Approval ---
+    $('body').on('click', '.oa-approve-product-btn', function() {
+        if (!confirm('Are you sure you want to approve this product?')) {
+            return;
+        }
+        const button = $(this);
+        const productId = button.data('product-id');
+        const productRow = $('#product-row-' + productId);
+
+        button.prop('disabled', true).text('Approving...');
+
+        $.ajax({
+            url: taptosell_ajax_object.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'taptosell_approve_product',
+                security: taptosell_ajax_object.product_actions_nonce,
+                product_id: productId
+            },
+            success: function(response) {
+                if (response.success) {
+                    alert('Product approved successfully.');
+                    productRow.fadeOut(500, function() { $(this).remove(); });
+                } else {
+                    alert('Error: ' + response.data.message);
+                    button.prop('disabled', false).text('Approve');
+                }
+            },
+            error: function() {
+                alert('An unexpected server error occurred. Please try again.');
+                button.prop('disabled', false).text('Approve');
+            }
+        });
+    });
+
+    // --- Product Rejection ---
+    const productRejectionModal = $('#tts-product-rejection-modal');
+    const productReasonText = $('#tts-product-rejection-reason-text');
+    const productConfirmBtn = $('#tts-product-rejection-confirm');
+
+    // Show the rejection modal
+    $('body').on('click', '.oa-reject-product-btn', function() {
+        const productId = $(this).data('product-id');
+        productConfirmBtn.data('product-id', productId);
+        productReasonText.val('');
+        productRejectionModal.show();
+    });
+
+    // Handle the confirm rejection click
+    productConfirmBtn.on('click', function() {
+        const button = $(this);
+        const productId = button.data('product-id');
+        const reason = productReasonText.val();
+        const productRow = $('#product-row-' + productId);
+
+        if (reason.trim() === '') {
+            alert('Please provide a reason for rejection.');
+            return;
+        }
+
+        button.prop('disabled', true).text('Rejecting...');
+
+        $.ajax({
+            url: taptosell_ajax_object.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'taptosell_reject_product',
+                security: taptosell_ajax_object.product_actions_nonce,
+                product_id: productId,
+                reason: reason
+            },
+            success: function(response) {
+                if (response.success) {
+                    alert('Product rejected.');
+                    productRejectionModal.hide();
+                    productRow.fadeOut(500, function() { $(this).remove(); });
+                } else {
+                    alert('Error: ' + response.data.message);
+                }
+            },
+            error: function() {
+                alert('An unexpected server error occurred. Please try again.');
+            },
+            complete: function() {
+                button.prop('disabled', false).text('Confirm Rejection');
+            }
+        });
+    });
+
 
     // =================================================================
     // 3. GENERAL MODAL BEHAVIOR
     // =================================================================
     
-    // Close any open custom modal when clicking on the dark overlay
-    $(window).on('click', function(event) {
-        if ($(event.target).is('.taptosell-modal-overlay')) {
-            $(event.target).hide();
+    // Close any modal when the 'close' button or cancel button is clicked
+    $('.taptosell-modal-overlay').on('click', '.tts-modal-close, [data-dismiss="modal"]', function() {
+        $(this).closest('.taptosell-modal-overlay').hide();
+    });
+
+    // Close the modal if the user clicks on the dark overlay background
+    $('.taptosell-modal-overlay').on('click', function(e) {
+        if ($(e.target).is('.taptosell-modal-overlay')) {
+            $(this).hide();
         }
     });
 

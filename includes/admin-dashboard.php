@@ -66,8 +66,8 @@ function taptosell_render_oa_dashboard_hub() {
 }
 
 /**
- * --- UPGRADED (Phase 11): Renders the User Management view with search and filtering. ---
- * Allows searching all users (excluding admins) and filtering by account status.
+ * --- UPGRADED (AJAX Version): Renders the User Management view. ---
+ * Actions (Approve, Reject, Details) are now handled by JavaScript without page reloads.
  */
 function taptosell_render_oa_users_view() {
     // Get the search and filter values from the URL, if they exist
@@ -79,19 +79,7 @@ function taptosell_render_oa_users_view() {
     <h3>User Management</h3>
 
     <?php
-    // --- Display any success/error messages from user actions ---
-    if (isset($_GET['message'])) {
-        $message_type = sanitize_key($_GET['message']);
-        $notice_text = '';
-        if ($message_type === 'user_approved') {
-            $notice_text = 'User approved successfully.';
-        } elseif ($message_type === 'user_rejected') {
-            $notice_text = 'User rejected and deleted successfully.';
-        }
-        if ($notice_text) {
-            echo '<div class="taptosell-notice success"><p>' . esc_html($notice_text) . '</p></div>';
-        }
-    }
+    // The success/error message block has been removed, as AJAX will provide instant feedback.
     ?>
 
     <form method="get" action="<?php echo esc_url($dashboard_url); ?>">
@@ -154,15 +142,8 @@ function taptosell_render_oa_users_view() {
             <tbody>
                 <?php foreach ($found_users as $user) : 
                     $account_status = get_user_meta($user->ID, '_account_status', true);
-                    
-                    $approve_nonce = wp_create_nonce('oa_approve_user_' . $user->ID);
-                    $reject_nonce = wp_create_nonce('oa_reject_user_' . $user->ID);
-                    
-                    // Build the action links, including the current search/filter state
-                    $approve_link = add_query_arg(['view' => 'users', 's' => $search_query, 'status' => $status_filter, 'action' => 'approve_user', 'user_id' => $user->ID, '_wpnonce' => $approve_nonce], $dashboard_url);
-                    $reject_link = add_query_arg(['view' => 'users', 's' => $search_query, 'status' => $status_filter, 'action' => 'reject_user', 'user_id' => $user->ID, '_wpnonce' => $reject_nonce], $dashboard_url);
                 ?>
-                    <tr>
+                    <tr id="user-row-<?php echo esc_attr($user->ID); // Add an ID to the row for easy removal ?>">
                         <td><strong><?php echo esc_html($user->user_login); ?></strong></td>
                         <td><?php echo esc_html($user->user_email); ?></td>
                         <td><?php echo esc_html(ucfirst(implode(', ', $user->roles))); ?></td>
@@ -177,10 +158,12 @@ function taptosell_render_oa_users_view() {
                             <?php endif; ?>
                         </td>
                         <td>
-                            <a href="#" class="button button-secondary oa-user-details-btn" data-userid="<?php echo esc_attr($user->ID); ?>">Details</a>
+                            <?php // --- NEW: Action buttons for AJAX --- ?>
+                            <button type="button" class="button button-secondary view-user-details" data-user-id="<?php echo esc_attr($user->ID); ?>">Details</button>
+                            
                             <?php if ($account_status === 'pending') : ?>
-                                | <a href="<?php echo esc_url($approve_link); ?>" class="button button-primary">Approve</a>
-                                | <a href="#" class="button button-secondary oa-reject-user-btn" data-reject-url="<?php echo esc_url($reject_link); ?>">Reject</a>
+                                <button type="button" class="button button-primary oa-approve-user-btn" data-user-id="<?php echo esc_attr($user->ID); ?>">Approve</button>
+                                <button type="button" class="button button-secondary oa-reject-user-btn" data-user-id="<?php echo esc_attr($user->ID); ?>">Reject</button>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -193,24 +176,25 @@ function taptosell_render_oa_users_view() {
     }
     ?>
 
-    <div id="tts-rejection-modal" class="taptosell-modal-overlay" style="display: none;">
+    <?php // --- The modals remain the same, but we will give them clearer IDs --- ?>
+    <div id="tts-user-rejection-modal" class="taptosell-modal-overlay" style="display: none;">
         <div class="taptosell-modal-content">
             <span class="tts-modal-close taptosell-modal-close">&times;</span>
             <h3 class="taptosell-modal-title">Rejection Reason</h3>
             <p>Please provide a reason for rejecting this user. This will be sent to them in an email.</p>
-            <textarea id="tts-rejection-reason-text" style="width: 100%; height: 100px;" placeholder="e.g., Incomplete information provided..."></textarea>
+            <textarea id="tts-user-rejection-reason-text" style="width: 100%; height: 100px;" placeholder="e.g., Incomplete information provided..."></textarea>
             <div style="margin-top: 20px; text-align: right;">
-                <button type="button" id="tts-rejection-cancel" class="button button-secondary">Cancel</button>
-                <button type="button" id="tts-rejection-confirm" class="button button-primary" style="margin-left: 10px;">Confirm Rejection</button>
+                <button type="button" class="button button-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" id="tts-user-rejection-confirm" class="button button-primary" style="margin-left: 10px;">Confirm Rejection</button>
             </div>
         </div>
     </div>
 
-    <div id="tts-details-modal" class="taptosell-modal-overlay" style="display: none;">
+    <div id="tts-user-details-modal" class="taptosell-modal-overlay" style="display: none;">
         <div class="taptosell-modal-content">
             <span class="tts-modal-close taptosell-modal-close">&times;</span>
             <h3 class="taptosell-modal-title">User Registration Details</h3>
-            <div id="tts-details-modal-content" class="taptosell-modal-body">
+            <div class="taptosell-modal-body">
                 <p>Loading details...</p>
             </div>
         </div>
@@ -292,27 +276,17 @@ function taptosell_oa_dashboard_shortcode() {
 }
 add_shortcode('oa_dashboard', 'taptosell_oa_dashboard_shortcode');
 
+// In: /includes/admin-dashboard.php
+
 /**
- * --- REVISED (Phase 12): Renders the Product Management view for the OA. ---
- * Displays a list of pending products with Approve, Reject, and Details actions.
- * Uses a custom overlay modal for the new AJAX-powered details view.
+ * --- REVISED (AJAX Version): Renders the Product Management view for the OA. ---
+ * Actions are now handled by JavaScript without page reloads.
  */
 function taptosell_render_oa_products_view() {
     ?>
     <h3>Manage Pending Products</h3>
     <?php
-    // --- Display any success/error messages ---
-    if (isset($_GET['message'])) {
-        if ($_GET['message'] === 'product_approved') {
-            echo '<div class="taptosell-notice success"><p>Product has been approved and the supplier has been notified.</p></div>';
-        }
-        if ($_GET['message'] === 'product_rejected') {
-            echo '<div class="taptosell-notice"><p>Product has been rejected and the supplier has been notified.</p></div>';
-        }
-        if ($_GET['message'] === 'commission_updated') {
-            echo '<div class="taptosell-notice success"><p>Product commission has been updated successfully.</p></div>';
-        }
-    }
+    // The success/error message block has been removed, as AJAX will provide instant feedback.
     ?>
     <p>The following products have been submitted by suppliers and are awaiting your review.</p>
     <?php
@@ -332,34 +306,23 @@ function taptosell_render_oa_products_view() {
                     <th>Product Name</th>
                     <th>Supplier</th>
                     <th>Date Submitted</th>
-                    <th style="width: 250px;">Actions</th>
+                    <th style="width: 280px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <?php while ($pending_products_query->have_posts()) : $pending_products_query->the_post(); 
                     $product_id = get_the_ID();
                     $supplier = get_user_by('id', get_the_author_meta('ID'));
-
-                    $approve_nonce = wp_create_nonce('oa_approve_product_' . $product_id);
-                    $approve_link = admin_url('admin-post.php?action=taptosell_oa_approve_product&product_id=' . $product_id . '&_wpnonce=' . $approve_nonce);
-
-                    $reject_nonce = wp_create_nonce('oa_reject_product_' . $product_id);
-                    $reject_link = admin_url('admin-post.php?action=taptosell_oa_reject_product&product_id=' . $product_id . '&_wpnonce=' . $reject_nonce);
                 ?>
-                    <tr>
+                    <tr id="product-row-<?php echo esc_attr($product_id); // Add an ID to the row ?>">
                         <td><strong><?php the_title(); ?></strong></td>
                         <td><?php echo esc_html($supplier->display_name); ?></td>
                         <td><?php echo get_the_date(); ?></td>
                         <td>
-                            <a href="<?php echo esc_url($approve_link); ?>" class="button button-primary">Approve</a>
-                            <a href="<?php echo esc_url($reject_link); ?>" class="button button-secondary">Reject</a>
-                            
-                            <button 
-                                type="button"
-                                class="button button-secondary view-product-details"
-                                data-product-id="<?php echo esc_attr($product_id); ?>"
-                            >Details</button>
-
+                            <?php // --- NEW: Action buttons for AJAX --- ?>
+                            <button type="button" class="button button-primary oa-approve-product-btn" data-product-id="<?php echo esc_attr($product_id); ?>">Approve</button>
+                            <button type="button" class="button button-secondary oa-reject-product-btn" data-product-id="<?php echo esc_attr($product_id); ?>">Reject</button>
+                            <button type="button" class="button button-secondary view-product-details" data-product-id="<?php echo esc_attr($product_id); ?>">Details</button>
                         </td>
                     </tr>
                 <?php endwhile; ?>
@@ -371,13 +334,29 @@ function taptosell_render_oa_products_view() {
         echo '<p>There are no products pending review at this time.</p>';
     }
     
-    // --- THIS IS THE NEW CUSTOM MODAL STRUCTURE (NON-BOOTSTRAP) ---
+    // --- ADD THIS NEW REJECTION MODAL ---
     ?>
-    <div id="productDetailsModal" class="taptosell-modal-overlay" style="display: none;">
+    <div id="tts-product-rejection-modal" class="taptosell-modal-overlay" style="display: none;">
+        <div class="taptosell-modal-content">
+            <span class="tts-modal-close taptosell-modal-close">&times;</span>
+            <h3 class="taptosell-modal-title">Product Rejection Reason</h3>
+            <p>Please provide a reason for rejecting this product. This will be sent to the supplier.</p>
+            <textarea id="tts-product-rejection-reason-text" style="width: 100%; height: 100px;" placeholder="e.g., Product images are low quality..."></textarea>
+            <div style="margin-top: 20px; text-align: right;">
+                <button type="button" class="button button-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" id="tts-product-rejection-confirm" class="button button-primary" style="margin-left: 10px;">Confirm Rejection</button>
+            </div>
+        </div>
+    </div>
+    <?php
+    
+    // --- THIS IS THE EXISTING DETAILS MODAL (ID is updated for clarity) ---
+    ?>
+    <div id="tts-product-details-modal" class="taptosell-modal-overlay" style="display: none;">
         <div class="taptosell-modal-content" style="max-width: 800px;">
             <span class="tts-modal-close taptosell-modal-close">&times;</span>
-            <h3 id="productDetailsModalLabel" class="taptosell-modal-title">Product Details</h3>
-            <div class="modal-body">
+            <h3 class="taptosell-modal-title">Product Details</h3>
+            <div class="taptosell-modal-body">
                 <p>Loading product details...</p>
             </div>
         </div>

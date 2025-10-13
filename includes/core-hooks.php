@@ -246,35 +246,35 @@ function taptosell_enqueue_variations_script() {
 add_action('wp_enqueue_scripts', 'taptosell_enqueue_variations_script');
 
 /**
- * --- UPDATED (Phase 12): Enqueues scripts for the OA Dashboard. ---
+ * --- FINAL VERSION: Enqueues scripts for the OA Dashboard. ---
  * Consolidates all JavaScript variables (AJAX URL and nonces) into a single
- * localization object to prevent conflicts and ensure all data is available when needed.
+ * localization object to prevent conflicts and ensure all data is available.
  */
 function taptosell_enqueue_oa_dashboard_scripts() {
     // Only load these scripts on our OA Dashboard page
     if ( is_page('operational-admin-dashboard') ) {
         wp_enqueue_script(
-            'taptosell-oa-dashboard-scripts', // Use a consistent script handle
+            'taptosell-oa-dashboard-scripts', // Script handle
             TAPTOSELL_CORE_URL . 'assets/js/oa-dashboard.js',
             ['jquery'],
-            TAPTOSELL_CORE_VERSION,
-            true // Load in footer
+            '1.2.1', // --- Bumping the version number to help clear cache ---
+            true 
         );
 
-        // Pass the consolidated data object that the new JS expects
+        // --- CORRECTED & EXPANDED: This passes all necessary data to our JavaScript file ---
         wp_localize_script(
-            'taptosell-oa-dashboard-scripts', // Match the script handle
-            'tts_oa_data', // This is the object name our new JS is looking for
+            'taptosell-oa-dashboard-scripts', 
+            'taptosell_ajax_object', // This is the correct object name our new JS file is looking for
             [
-                'ajax_url' => admin_url('admin-ajax.php'),
-                'user_details_nonce' => wp_create_nonce('taptosell_get_user_details_nonce'),
-                'product_details_nonce' => wp_create_nonce('oa_view_product_details_nonce'),
+                'ajax_url'              => admin_url('admin-ajax.php'),
+                'user_actions_nonce'    => wp_create_nonce('taptosell_oa_user_actions_nonce'),
+                'product_actions_nonce' => wp_create_nonce('taptosell_oa_product_actions_nonce'),
             ]
         );
     }
 }
+// The add_action hook remains unchanged.
 add_action('wp_enqueue_scripts', 'taptosell_enqueue_oa_dashboard_scripts');
-
 /**
  * --- REVISED: Dynamically Filter Menu Items Based on User Role ---
  * This function uses a "whitelist" approach to show only the menu items
