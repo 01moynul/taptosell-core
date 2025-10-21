@@ -111,7 +111,6 @@ function taptosell_enqueue_frontend_styles() {
         TAPTOSELL_CORE_VERSION
     );
 
-    // --- ADD THIS BLOCK ---
     // Enqueue the new frontend script for modal, etc.
     wp_enqueue_script(
         'taptosell-frontend-scripts',
@@ -125,6 +124,35 @@ function taptosell_enqueue_frontend_styles() {
     if ( is_user_logged_in() ) {
         wp_enqueue_style( 'dashicons' );
     }
+
+    // --- NEW SECTION: DATA FOR REACT APP ---
+    // This code will be used LATER when we load the *built* React app.
+    // It has no effect on the 'npm start' dev server.
+    // TODO: We will need to conditionally enqueue this ONLY on the "Add Product" page.
+    
+    // Define a handle for our future React script bundle
+    $react_app_handle = 'taptosell-react-app-bundle'; 
+
+    // Register a placeholder script. We will update the path in a later step
+    // when we have a real build file (e.g., /assets/js/react-app.build.js)
+    wp_register_script($react_app_handle, '', [], TAPTOSELL_CORE_VERSION, true);
+
+    // Pass data, including the nonce, to our React app
+    wp_localize_script(
+        $react_app_handle,
+        'taptosell_react_data', // The JavaScript object name
+        [
+            // Provides the correct base URL for the API
+            'api_url' => esc_url_raw( rest_url( 'taptosell/v1/' ) ), 
+            // Creates a nonce for verifying API requests
+            'nonce'   => wp_create_nonce( 'wp_rest' ) 
+        ]
+    );
+
+    // We don't call wp_enqueue_script($react_app_handle) yet
+    // because the build file doesn't exist.
+    // --- END OF NEW SECTION ---
+
 }
 add_action('wp_enqueue_scripts', 'taptosell_enqueue_frontend_styles');
 
@@ -338,4 +366,55 @@ function taptosell_filter_nav_menu_items($sorted_menu_items) {
     return $sorted_menu_items;
 }
 add_filter('wp_nav_menu_objects', 'taptosell_filter_nav_menu_items', 10, 1);
+
+/**
+ * --- REVISED CORS HANDLING (For React Dev Server) ---
+ * Uses the 'rest_pre_serve_request' filter to add CORS headers.
+ * This should reliably allow credentials (cookies) from localhost:3000.
+ *
+ * @param bool $served Whether the request has already been served.
+ * @param WP_REST_Response $result The result object.
+ * @param WP_REST_Request $request The request object.
+ * @param WP_REST_Server $server The server object.
+ * @return bool True if served, false otherwise.
+ */
+function taptosell_add_cors_headers_for_dev( $served, $result, $request, $server ) {
+    // Check if the request is coming from our React dev server
+    if ( isset( $_SERVER['HTTP_ORIGIN'] ) && $_SERVER['HTTP_ORIGIN'] === 'http://localhost:3000' ) {
+        
+        // Add the necessary CORS headers directly to the response
+        $server->send_header( 'Access-Control-Allow-Origin', 'http://localhost:3000' );
+        $server->send_header( 'Access-Control-Allow-Credentials', 'true' );
+        $server->send_header( 'Access-Control-Allow-Methods', 'GET, POST, OPTIONS' );
+        // Allow specific headers (like the X-WP-Nonce we will need later AND Authorization for Basic Auth)
+        $server->send_header( 'Access-Control-Allow-Headers', 'Authorization, X-WP-Nonce, Content-Type, X-Requested-With' );
+
+        // Handle pre-flight OPTIONS requests (important for browsers)
+        if ( 'OPTIONS' === $request->get_method() ) {
+            // Send a simple 200 OK response for OPTIONS requests and stop processing.
+            // Setting $served to true tells the REST server not to continue.
+            //status_header( 200 ); // No need for this, $served=true handles it.
+            return true; 
+        }
+    }
+    
+    // Allow the request to continue processing normally if it's not from our dev server or not an OPTIONS request.
+    return $served; 
+}
+// Hook into the filter with priority 15 (runs after authentication checks)
+add_filter( 'rest_pre_serve_request', 'taptosell_add_cors_headers_for_dev', 15, 4 );
+
+/**
+ * --- DEVELOPMENT ONLY: Force enable Application Passwords ---
+ * Overrides potential theme/plugin conflicts when WP_ENVIRONMENT_TYPE is 'development'.
+ */
+function taptosell_force_enable_app_passwords_for_dev( $available ) {
+    // Only force enable if the environment is explicitly set to development
+    if ( defined('WP_ENVIRONMENT_TYPE') && WP_ENVIRONMENT_TYPE === 'development' ) {
+        return true; // Force enable
+    }
+    return $available; // Otherwise, respect the default WordPress behavior
+}
+add_filter( 'wp_is_application_passwords_available', 'taptosell_force_enable_app_passwords_for_dev', 99 ); // High priority
+
 ?>
