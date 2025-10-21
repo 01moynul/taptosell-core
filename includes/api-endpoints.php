@@ -26,6 +26,46 @@ function taptosell_register_rest_routes() {
         'permission_callback' => 'taptosell_api_check_supplier_permission', // Secure this endpoint
     ));
 
+    // --- REGISTER PRODUCT CATEGORIES ENDPOINT (GET) ---
+    register_rest_route( $namespace, '/product/categories', array(
+        // ... (existing code for categories) ...
+    ));
+
+    // --- NEW: REGISTER PRODUCT CREATION ENDPOINT (POST) ---
+    // Used by the "Add Product" form to create a new product
+    register_rest_route( $namespace, '/product/create', array(
+        'methods'             => WP_REST_Server::CREATABLE, // Corresponds to POST requests
+        'callback'            => 'taptosell_api_create_product',
+        'permission_callback' => 'taptosell_api_check_supplier_permission', // Reuse the same security check
+        'args'                => array(
+            // Define the parameters we expect from the React form
+            // This provides automatic validation and sanitization
+            'product_title' => array(
+                'required'          => true,
+                'type'              => 'string',
+                'description'       => 'The title of the product.',
+                'sanitize_callback' => 'sanitize_text_field',
+                'validate_callback' => function( $param, $request, $key ) {
+                    return ! empty( $param ); // Ensure it's not empty
+                }
+            ),
+            'product_description' => array(
+                'required'          => true,
+                'type'              => 'string',
+                'description'       => 'The main description of the product.',
+                'sanitize_callback' => 'wp_kses_post', // Allows safe HTML
+            ),
+            'product_category' => array(
+                'required'          => true,
+                'type'              => 'integer', // We expect the category ID
+                'description'       => 'The term ID for the product category.',
+                'sanitize_callback' => 'absint', // Sanitizes to an absolute integer
+            ),
+            // We will add more args for price, sku, variations, etc., later
+        ),
+    ));
+    // --- END OF NEW CODE BLOCK ---
+
     // --- MORE ENDPOINTS WILL BE REGISTERED HERE LATER ---
     // Example: register_rest_route( $namespace, '/product/create', ... );
     // ...
