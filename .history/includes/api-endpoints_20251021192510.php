@@ -38,96 +38,30 @@ function taptosell_register_rest_routes() {
         'callback'            => 'taptosell_api_create_product',
         'permission_callback' => 'taptosell_api_check_supplier_permission', // Reuse the same security check
         'args'                => array(
-            // --- NEW: Status (draft vs. publish) ---
-            'status' => array(
-                'required'          => true,
-                'type'              => 'string',
-                'description'       => 'The desired post status, e.g., "draft" or "pending".',
-                'sanitize_callback' => 'sanitize_key', // Cleans the string to 'draft' or 'pending'
-                'validate_callback' => function( $param ) {
-                    return in_array( $param, ['draft', 'pending'] ); // Only allow these two values
-                }
-            ),
-
-            // --- Basic Info ---
-            'productName' => array(
+            // Define the parameters we expect from the React form
+            // This provides automatic validation and sanitization
+            'product_title' => array(
                 'required'          => true,
                 'type'              => 'string',
                 'description'       => 'The title of the product.',
                 'sanitize_callback' => 'sanitize_text_field',
+                'validate_callback' => function( $param, $request, $key ) {
+                    return ! empty( $param ); // Ensure it's not empty
+                }
             ),
-            'selectedCategory' => array(
-                'required'          => true,
-                'type'              => 'integer',
-                'description'       => 'The term ID for the product category.',
-                'sanitize_callback' => 'absint',
-            ),
-            'productDescription' => array(
+            'product_description' => array(
                 'required'          => true,
                 'type'              => 'string',
                 'description'       => 'The main description of the product.',
                 'sanitize_callback' => 'wp_kses_post', // Allows safe HTML
             ),
-            'brand' => array(
-                'required'          => false,
-                'type'              => 'string',
-                'description'       => 'The brand name.',
-                'sanitize_callback' => 'sanitize_text_field',
-            ),
-
-            // --- Sales Info (Simple) ---
-            'price' => array(
-                'required'          => false,
-                'type'              => 'string', // Use string to accept decimals
-                'sanitize_callback' => 'sanitize_text_field',
-            ),
-            'sku' => array(
-                'required'          => false,
-                'type'              => 'string',
-                'sanitize_callback' => 'sanitize_text_field',
-            ),
-            'stock' => array(
-                'required'          => false,
-                'type'              => 'string', // Use string to accept numbers
-                'sanitize_callback' => 'sanitize_text_field',
-            ),
-
-            // --- Variation Info ---
-            'hasVariations' => array(
+            'product_category' => array(
                 'required'          => true,
-                'type'              => 'boolean',
-                'description'       => 'Flag for simple or variable product.',
+                'type'              => 'integer', // We expect the category ID
+                'description'       => 'The term ID for the product category.',
+                'sanitize_callback' => 'absint', // Sanitizes to an absolute integer
             ),
-            // 'variationConfig' and 'variationDetails' will be JSON objects.
-            // We'll validate them as arrays, as WordPress converts JSON objects/arrays.
-            'variationConfig' => array(
-                'required'          => false,
-                'type'              => 'array',
-                'description'       => 'The configuration object for variation groups.',
-                // No sanitize callback, we'll handle this complex array in the function
-            ),
-            'variationDetails' => array(
-                'required'          => false,
-                'type'              => 'array',
-                'description'       => 'The array of data from the variation table.',
-            ),
-
-            // --- Shipping Info ---
-            'weight' => array(
-                'required'          => true,
-                'type'              => 'string',
-                'sanitize_callback' => 'sanitize_text_field',
-            ),
-            'packageDimensions' => array(
-                'required'          => true,
-                'type'              => 'object',
-                'description'       => 'Object containing length, width, and height.',
-                'properties'        => array(
-                    'length' => array('type' => 'string', 'sanitize_callback' => 'sanitize_text_field'),
-                    'width'  => array('type' => 'string', 'sanitize_callback' => 'sanitize_text_field'),
-                    'height' => array('type' => 'string', 'sanitize_callback' => 'sanitize_text_field'),
-                ),
-            ),
+            // We will add more args for price, sku, variations, etc., later
         ),
     ));
     // --- END OF NEW CODE BLOCK ---
