@@ -38,7 +38,7 @@ require_once TAPTOSELL_CORE_PATH . 'includes/api-shopee.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/subscription-functions.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/notifications-functions.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/modal-login.php';
-require_once TAPTOSELL_CORE_PATH . 'includes/security-2fa-functions.php';
+//require_once TAPTOSELL_CORE_PATH . 'includes/security-2fa-functions.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/admin-dashboard.php';
-//include_once( TAPTOSELL_CORE_PATH . 'includes/api-functions.php' ); // Core API functions
-//include_once( TAPTOSELL_CORE_PATH . 'includes/api-endpoints.php' ); // API endpoint registration
+include_once( TAPTOSELL_CORE_PATH . 'includes/api-functions.php' ); // Core API functions
+include_once( TAPTOSELL_CORE_PATH . 'includes/api-endpoints.php' ); // API endpoint registration

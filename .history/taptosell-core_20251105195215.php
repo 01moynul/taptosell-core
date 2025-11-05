@@ -29,16 +29,16 @@ require_once TAPTOSELL_CORE_PATH . 'includes/supplier-functions.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/maintenance-mode.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/roadmap-functions.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/post-types.php';
-require_once TAPTOSELL_CORE_PATH . 'includes/admin-actions.php';
-require_once TAPTOSELL_CORE_PATH . 'includes/dropshipper-functions.php';
-require_once TAPTOSELL_CORE_PATH . 'includes/wallet-functions.php';
-require_once TAPTOSELL_CORE_PATH . 'includes/admin-settings-page.php';
-require_once TAPTOSELL_CORE_PATH . 'includes/admin-price-requests.php';
-require_once TAPTOSELL_CORE_PATH . 'includes/api-shopee.php';
-require_once TAPTOSELL_CORE_PATH . 'includes/subscription-functions.php';
-require_once TAPTOSELL_CORE_PATH . 'includes/notifications-functions.php';
-require_once TAPTOSELL_CORE_PATH . 'includes/modal-login.php';
-require_once TAPTOSELL_CORE_PATH . 'includes/security-2fa-functions.php';
+//require_once TAPTOSELL_CORE_PATH . 'includes/admin-actions.php';
+//require_once TAPTOSELL_CORE_PATH . 'includes/dropshipper-functions.php';
+//require_once TAPTOSELL_CORE_PATH . 'includes/wallet-functions.php';
+//require_once TAPTOSELL_CORE_PATH . 'includes/admin-settings-page.php';
+//require_once TAPTOSELL_CORE_PATH . 'includes/admin-price-requests.php';
+//require_once TAPTOSELL_CORE_PATH . 'includes/api-shopee.php';
+//require_once TAPTOSELL_CORE_PATH . 'includes/subscription-functions.php';
+//require_once TAPTOSELL_CORE_PATH . 'includes/notifications-functions.php';
+//require_once TAPTOSELL_CORE_PATH . 'includes/modal-login.php';
+//require_once TAPTOSELL_CORE_PATH . 'includes/security-2fa-functions.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/admin-dashboard.php';
-//include_once( TAPTOSELL_CORE_PATH . 'includes/api-functions.php' ); // Core API functions
-//include_once( TAPTOSELL_CORE_PATH . 'includes/api-endpoints.php' ); // API endpoint registration
+include_once( TAPTOSELL_CORE_PATH . 'includes/api-functions.php' ); // Core API functions
+include_once( TAPTOSELL_CORE_PATH . 'includes/api-endpoints.php' ); // API endpoint registration

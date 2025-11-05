@@ -19,7 +19,7 @@ define( 'TAPTOSELL_CORE_URL', plugin_dir_url( __FILE__ ) );
 define( 'TAPTOSELL_CORE_VERSION', '1.2.0' ); // Get version from plugin header
 
 // Include all the core functionality files.
-require_once TAPTOSELL_CORE_PATH . 'includes/core-hooks.php';
+//require_once TAPTOSELL_CORE_PATH . 'includes/core-hooks.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/helpers.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/security.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/login-functions.php';
@@ -40,5 +40,5 @@ require_once TAPTOSELL_CORE_PATH . 'includes/notifications-functions.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/modal-login.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/security-2fa-functions.php';
 require_once TAPTOSELL_CORE_PATH . 'includes/admin-dashboard.php';
-//include_once( TAPTOSELL_CORE_PATH . 'includes/api-functions.php' ); // Core API functions
-//include_once( TAPTOSELL_CORE_PATH . 'includes/api-endpoints.php' ); // API endpoint registration
+include_once( TAPTOSELL_CORE_PATH . 'includes/api-functions.php' ); // Core API functions
+include_once( TAPTOSELL_CORE_PATH . 'includes/api-endpoints.php' ); // API endpoint registration
