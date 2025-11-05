@@ -102,7 +102,7 @@ function taptosell_supplier_reg_key_field_html() {
         update_option('taptosell_supplier_reg_key', $reg_key);
     }
     
-    $supplier_reg_page = taptosell_get_page_by_title('Supplier Registration');
+    $supplier_reg_page = get_page_by_title('Supplier Registration');
     $reg_url = $supplier_reg_page ? get_permalink($supplier_reg_page->ID) : home_url('/supplier-registration/');
     ?>
     <input type="text" value="<?php echo esc_attr($reg_key); ?>" class="regular-text" readonly />

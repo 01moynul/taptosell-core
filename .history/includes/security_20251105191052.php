@@ -48,7 +48,7 @@ add_action( 'admin_init', 'taptosell_prevent_admin_user_edit' );
  * --- UPDATED: Protects the Supplier Registration page more securely. ---
  */
 function taptosell_protect_supplier_registration_page() {
-    $supplier_reg_page = taptosell_get_page_by_title('Supplier Registration');
+    $supplier_reg_page = taptosell_taptosell_get_page_by_title('Supplier Registration');
 
     // Only run our logic if the user is currently trying to view the Supplier Registration page.
     if ( $supplier_reg_page && is_page($supplier_reg_page->ID) ) {

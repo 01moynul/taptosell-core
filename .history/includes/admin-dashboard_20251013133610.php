@@ -521,7 +521,7 @@ function taptosell_render_oa_settings_view() {
         $reg_key = wp_generate_password(16, false);
         update_option('taptosell_supplier_reg_key', $reg_key);
     }
-    $supplier_reg_page = taptosell_get_page_by_title('Supplier Registration');
+    $supplier_reg_page = get_page_by_title('Supplier Registration');
     $reg_url = $supplier_reg_page ? get_permalink($supplier_reg_page->ID) : home_url('/supplier-registration/');
     $full_reg_link = esc_url(add_query_arg('reg_key', $reg_key, $reg_url));
     ?>

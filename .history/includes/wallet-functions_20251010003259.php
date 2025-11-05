@@ -218,7 +218,7 @@ function taptosell_handle_wallet_topup() {
     }
 
     // --- CORRECTED REDIRECT ---
-    $wallet_page = taptosell_get_page_by_title('My Wallet');
+    $wallet_page = get_page_by_title('My Wallet');
     if ($wallet_page) {
         $wallet_url = get_permalink($wallet_page->ID);
         // Add a query argument for our success message

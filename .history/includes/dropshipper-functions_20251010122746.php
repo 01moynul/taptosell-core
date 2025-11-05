@@ -136,7 +136,7 @@ add_action('init', 'taptosell_handle_srp_save');
  * Access control for the Dropshipper Dashboard page.
  */
 function taptosell_dropshipper_dashboard_access() {
-    $dashboard_page = taptosell_get_page_by_title('Dropshipper Dashboard');
+    $dashboard_page = get_page_by_title('Dropshipper Dashboard');
     if ( $dashboard_page && is_page( $dashboard_page->ID ) ) {
         if ( is_user_logged_in() ) {
             $user = wp_get_current_user();
@@ -233,7 +233,7 @@ function taptosell_dropshipper_my_orders_shortcode() {
         if ($_GET['payment_status'] === 'success') {
             echo '<div style="background-color: #d4edda; color: #155724; padding: 15px; margin-bottom: 20px;">Payment successful! The order is now processing.</div>';
         } elseif ($_GET['payment_status'] === 'failed') {
-            $wallet_page = taptosell_get_page_by_title('My Wallet');
+            $wallet_page = get_page_by_title('My Wallet');
             $wallet_url = $wallet_page ? get_permalink($wallet_page->ID) : '#';
             echo '<div style="background-color: #f8d7da; color: #721c24; padding: 15px; margin-bottom: 20px;"><strong>Payment Failed:</strong> Insufficient funds. Please <a href="' . esc_url($wallet_url) . '">top up your wallet</a> and try again.</div>';
         }
@@ -306,7 +306,7 @@ function taptosell_handle_onhold_payment() {
     }
 
     $balance = taptosell_get_user_wallet_balance($dropshipper_id);
-    $dashboard_page = taptosell_get_page_by_title('Dropshipper Dashboard');
+    $dashboard_page = get_page_by_title('Dropshipper Dashboard');
     $redirect_url = $dashboard_page ? get_permalink($dashboard_page->ID) : home_url();
 
     if ($balance >= $order_cost) {

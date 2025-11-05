@@ -27,7 +27,7 @@ function taptosell_role_based_login_redirect( $redirect_to, $request, $user ) {
         
         // Check for Supplier role
         if ( in_array( 'supplier', $user->roles ) ) {
-            $dashboard_page = taptosell_get_page_by_title('Supplier Dashboard');
+            $$dashboard_page = taptosell_get_page_by_title('Dropshipper Dashboard');
             if ( $dashboard_page ) {
                 return get_permalink($dashboard_page->ID);
             }

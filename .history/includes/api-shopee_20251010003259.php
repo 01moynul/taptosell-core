@@ -42,7 +42,7 @@ function taptosell_handle_shopee_callback() {
             'method'  => 'POST',
         ]);
 
-        $redirect_url = get_permalink(taptosell_get_page_by_title('My Shops')->ID);
+        $redirect_url = get_permalink(get_page_by_title('My Shops')->ID);
 
         if (is_wp_error($response)) {
             // Handle connection error

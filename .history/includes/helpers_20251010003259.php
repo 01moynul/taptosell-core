@@ -16,7 +16,7 @@ function taptosell_get_commission_multiplier() {
     return 1 + ($commission_percentage / 100);
 }
 /**
- * --- NEW (Phase 12 Fix): Modern replacement for the deprecated taptosell_get_page_by_title(). ---
+ * --- NEW (Phase 12 Fix): Modern replacement for the deprecated get_page_by_title(). ---
  * Finds a single page by its exact title.
  *
  * @param string $title The title of the page to find.

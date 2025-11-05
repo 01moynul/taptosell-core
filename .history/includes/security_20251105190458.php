@@ -153,13 +153,13 @@ function taptosell_redirect_non_admins_from_backend() {
     $redirect_url = home_url(); // A safe fallback to the homepage.
 
     if (in_array('operational_admin', $roles)) {
-        $dashboard_page = taptosell_taptosell_get_page_by_title('Operational Admin Dashboard');
+        $dashboard_page = taptosell_get_page_by_title('Operational Admin Dashboard');
         if ($dashboard_page) { $redirect_url = get_permalink($dashboard_page->ID); }
     } elseif (in_array('supplier', $roles)) {
-        $dashboard_page = taptosell_taptosell_get_page_by_title('Supplier Dashboard');
+        $dashboard_page = taptosell_get_page_by_title('Supplier Dashboard');
         if ($dashboard_page) { $redirect_url = get_permalink($dashboard_page->ID); }
     } elseif (in_array('dropshipper', $roles)) {
-        $dashboard_page = taptosell_taptosell_get_page_by_title('Dropshipper Dashboard');
+        $dashboard_page = taptosell_get_page_by_title('Dropshipper Dashboard');
         if ($dashboard_page) { $redirect_url = get_permalink($dashboard_page->ID); }
     }
 

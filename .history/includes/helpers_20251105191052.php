@@ -22,7 +22,7 @@ function taptosell_get_commission_multiplier() {
  * @param string $title The title of the page to find.
  * @return WP_Post|null The post object if found, otherwise null.
  */
-function taptosell_get_page_by_title($title) {
+function taptosell_taptosell_get_page_by_title($title) {
     $pages = get_posts([
         'post_type'      => 'page',
         'post_status'    => 'publish',
