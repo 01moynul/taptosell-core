@@ -443,4 +443,4 @@ function taptosell_force_enable_app_passwords_for_dev( $available ) {
 }
 add_filter( 'wp_is_application_passwords_available', 'taptosell_force_enable_app_passwords_for_dev', 99 ); // High priority
 
-
+?>
