@@ -125,59 +125,33 @@ function taptosell_enqueue_frontend_styles() {
         wp_enqueue_style( 'dashicons' );
     }
 
-    // --- START: React App Integration ---
-    // This code block loads our built React app on the "Add New Product" page.
+    // --- NEW SECTION: DATA FOR REACT APP ---
+    // This code will be used LATER when we load the *built* React app.
+    // It has no effect on the 'npm start' dev server.
+    // TODO: We will need to conditionally enqueue this ONLY on the "Add Product" page.
     
-    // 1. Only load these scripts on the 'Add New Product' page.
-    if ( is_page('add-new-product') ) {
+    // Define a handle for our future React script bundle
+    $react_app_handle = 'taptosell-react-app-bundle'; 
 
-        // 2. Define a unique name (handle) for our main React script.
-        $react_app_handle = 'taptosell-react-app';
+    // Register a placeholder script. We will update the path in a later step
+    // when we have a real build file (e.g., /assets/js/react-app.build.js)
+    wp_register_script($react_app_handle, '', [], TAPTOSELL_CORE_VERSION, true);
 
-        // 3. Register the main React CSS file.
-        wp_enqueue_style(
-            $react_app_handle . '-css', // Handle: 'taptosell-react-app-css'
-            TAPTOSELL_CORE_URL . 'assets/css/react-app.css',
-            array(),
-            TAPTOSELL_CORE_VERSION
-        );
-        
-        // 4. Register the main React JS file.
-        wp_register_script(
-            $react_app_handle, // Handle: 'taptosell-react-app'
-            TAPTOSELL_CORE_URL . 'assets/js/react-app.js',
-            array(), // This script has no dependencies like jQuery
-            TAPTOSELL_CORE_VERSION,
-            true // Load in the footer
-        );
+    // Pass data, including the nonce, to our React app
+    wp_localize_script(
+        $react_app_handle,
+        'taptosell_react_data', // The JavaScript object name
+        [
+            // Provides the correct base URL for the API
+            'api_url' => esc_url_raw( rest_url( 'taptosell/v1/' ) ), 
+            // Creates a nonce for verifying API requests
+            'nonce'   => wp_create_nonce( 'wp_rest' ) 
+        ]
+    );
 
-        // 5. Pass data from PHP to React (API URL and Security Nonce).
-        // This is how we replace Basic Auth.
-        wp_localize_script(
-            $react_app_handle, // Target our main script
-            'taptosell_react_data', // The JavaScript object name React will look for
-            array(
-                // Provides the correct base URL for the API
-                'api_url' => esc_url_raw( rest_url( 'taptosell/v1/' ) ), 
-                // Creates a secure, one-time-use token for authentication
-                'nonce'   => wp_create_nonce( 'wp_rest' ) 
-            )
-        );
-
-        // 6. Finally, enqueue the main React script to be loaded.
-        wp_enqueue_script( $react_app_handle );
-
-        // 7. Enqueue the 'chunk' file. We MUST hardcode the name here.
-        // If you run 'npm run build' again, this name will change!
-        wp_enqueue_script(
-            $react_app_handle . '-chunk', // Handle: 'taptosell-react-app-chunk'
-            TAPTOSELL_CORE_URL . 'assets/js/453.3f680a5e.chunk.js',
-            array( $react_app_handle ), // This chunk DEPENDS on the main app script
-            TAPTOSELL_CORE_VERSION,
-            true // Load in the footer
-        );
-    }
-    // --- END: React App Integration ---
+    // We don't call wp_enqueue_script($react_app_handle) yet
+    // because the build file doesn't exist.
+    // --- END OF NEW SECTION ---
 
 }
 add_action('wp_enqueue_scripts', 'taptosell_enqueue_frontend_styles');
