@@ -322,11 +322,8 @@ function taptosell_handle_product_update() {
 add_action('init', 'taptosell_handle_product_update', 20);
 
 /**
- * --- REVISED (Phase 15): Shortcode for the "Add a New Product" page. ---
- * This function no longer renders a PHP form.
- * It now renders a single <div id="root"></div>, which our React app
- * will use as its main entry point. The 'core-hooks.php' file
- * handles enqueuing the React scripts on this page.
+ * --- REVISED: Shortcode for the NEW "Add a New Product" page. ---
+ * Separates Sales Info and Variations into distinct sections.
  * [taptosell_add_new_product_form]
  */
 function taptosell_add_new_product_form_shortcode() {
@@ -335,8 +332,148 @@ function taptosell_add_new_product_form_shortcode() {
         return '<div class="taptosell-container"><p class="taptosell-error">' . __( 'You must be logged in as a Supplier to view this page.', 'taptosell-core' ) . '</p></div>';
     }
 
-    // This is the mount point for our React application.
-    return '<div id="root"></div>';
+    ob_start();
+    ?>
+    <div class="taptosell-container taptosell-add-product-form">
+        <form id="new-product-form" method="post" action="" enctype="multipart/form-data">
+
+            <div class="form-header">
+                <h1><?php _e('Add a New Product', 'taptosell-core'); ?></h1>
+                <div class="form-actions">
+                    <button type="submit" name="save_as_draft" class="taptosell-button secondary"><?php _e('Save as Draft', 'taptosell-core'); ?></button>
+                    <button type="submit" name="taptosell_new_product_submit" class="taptosell-button primary"><?php _e('Save and Publish', 'taptosell-core'); ?></button>
+                </div>
+            </div>
+
+            <div class="taptosell-form-section">
+                <div class="section-header">
+                    <h2><?php _e('1. Basic Information', 'taptosell-core'); ?></h2>
+                </div>
+                <div class="section-content">
+                    <div class="form-row">
+                        <label for="product_title"><?php _e('Product Name', 'taptosell-core'); ?></label>
+                        <input type="text" id="product_title" name="product_title" placeholder="<?php _e('Enter product name', 'taptosell-core'); ?>" required>
+                    </div>
+                    <div class="form-row">
+                        <label for="product_category"><?php _e('Category', 'taptosell-core'); ?></label>
+                        <?php
+                        wp_dropdown_categories([
+                            'taxonomy' => 'product_category', 'name' => 'product_category',
+                            'show_option_none' => __('Select a Category', 'taptosell-core'),
+                            'hierarchical' => 1, 'required' => true, 'hide_empty' => 0, 'class' => 'taptosell-select'
+                        ]);
+                        ?>
+                    </div>
+                    <div class="form-row">
+                        <label for="product_brand">Brand</label>
+                        <input type="text" id="product_brand" name="product_brand" class="input" placeholder="e.g., Nike, Adidas, etc.">
+                        <p class="description">Leave blank to set as "No Brand".</p>
+                    </div>
+                    <div class="form-row">
+                        <label for="product_description"><?php _e('Product Description', 'taptosell-core'); ?></label>
+                        <?php
+                        wp_editor('', 'product_description', [
+                            'textarea_name' => 'product_description', // Specifies the 'name' attribute for the textarea
+                            'media_buttons' => false,                 // Hides the "Add Media" button
+                            'textarea_rows' => 10,                    // Sets the initial height of the editor
+                            'teeny'         => true,                  // Shows a simplified version of the editor toolbar
+                            'quicktags'     => false                  // --- THIS IS THE NEW LINE: It disables the "Text" tab ---
+                        ]);
+                        ?>
+                    </div>
+                </div>
+            </div>
+
+            <div class="taptosell-form-section">
+                <div class="section-header">
+                    <h2><?php _e('2. Sales Information (Simple Product)', 'taptosell-core'); ?></h2>
+                </div>
+                <div class="section-content">
+                    <div class="form-grid-3" id="simple-product-fields">
+                        <div class="form-row">
+                            <label for="product_price"><?php _e('Your Price (RM)', 'taptosell-core'); ?></label>
+                            <input type="number" step="0.01" id="product_price" name="product_price" placeholder="e.g., 25.50" required>
+                        </div>
+                        <div class="form-row">
+                            <label for="product_sku"><?php _e('SKU (Stock Keeping Unit)', 'taptosell-core'); ?></label>
+                            <input type="text" id="product_sku" name="product_sku" placeholder="e.g., TSHIRT-BLK-M" required>
+                        </div>
+                        <div class="form-row">
+                            <label for="product_stock"><?php _e('Stock Quantity', 'taptosell-core'); ?></label>
+                            <input type="number" step="1" id="product_stock" name="product_stock" placeholder="e.g., 100" required>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="taptosell-form-section">
+                <div class="section-header">
+                     <h2><?php _e('3. Product Variations', 'taptosell-core'); ?></h2>
+                </div>
+                 <div class="section-content">
+                    <div id="variations-container">
+                        <div id="variation-groups-wrapper">
+                            <div class="variation-group">
+                                <div class="variation-header">
+                                    <input type="text" name="variation[1][name]" class="variation-name-input" placeholder="e.g., Color">
+                                    <button type="button" class="remove-variation-group" title="Remove Variation">&times;</button>
+                                </div>
+                                <div class="variation-options">
+                                    <input type="text" class="variation-option-input" placeholder="e.g., Red (Press Enter to add)">
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" id="add-variation-group" class="taptosell-button secondary"><?php _e('+ Add Variation Type', 'taptosell-core'); ?></button>
+                        <hr class="form-divider">
+                        <h4><?php _e('Variation List', 'taptosell-core'); ?></h4>
+                        <p class="form-hint"><?php _e('This list is generated automatically. Set the price, stock, and SKU for each variant.', 'taptosell-core'); ?></p>
+                        <div id="variation-list-table-wrapper"></div>
+                    </div>
+                </div>
+            </div>
+
+             <div class="taptosell-form-section">
+                <div class="section-header">
+                    <h2><?php _e('4. Media', 'taptosell-core'); ?></h2>
+                </div>
+                <div class="section-content">
+                    <div class="form-row">
+                        <label for="product_image"><?php _e('Product Image', 'taptosell-core'); ?></label>
+                        <input type="file" id="product_image" name="product_image" accept="image/*" required>
+                        <p class="form-hint"><?php _e('This will be the main display image for your product.', 'taptosell-core'); ?></p>
+                    </div>
+                     <div class="form-row">
+                        <label for="product_video"><?php _e('Product Video URL (Optional)', 'taptosell-core'); ?></label>
+                        <input type="url" id="product_video" name="product_video" placeholder="e.g., https://youtube.com/watch?v=...">
+                    </div>
+                </div>
+            </div>
+
+            <div class="taptosell-form-section">
+                <div class="section-header">
+                    <h2><?php _e('5. Shipping', 'taptosell-core'); ?></h2>
+                </div>
+                <div class="section-content">
+                    <div class="form-row">
+                        <label for="product_weight"><?php _e('Weight (kg)', 'taptosell-core'); ?></label>
+                        <input type="number" step="0.01" id="product_weight" name="product_weight" placeholder="e.g., 0.5">
+                    </div>
+                    <div class="form-row">
+                        <label><?php _e('Package Dimensions (cm)', 'taptosell-core'); ?></label>
+                        <div class="form-grid-3">
+                            <input type="number" step="0.01" name="product_length" placeholder="Length">
+                            <input type="number" step="0.01" name="product_width" placeholder="Width">
+                            <input type="number" step="0.01" name="product_height" placeholder="Height">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <?php wp_nonce_field('taptosell_add_product', 'taptosell_product_nonce'); ?>
+        </form>
+    </div>
+    <?php
+    return ob_get_clean();
 }
 add_shortcode('taptosell_add_new_product_form', 'taptosell_add_new_product_form_shortcode');
 
