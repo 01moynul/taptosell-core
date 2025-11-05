@@ -135,9 +135,7 @@ add_filter('show_admin_bar', 'taptosell_hide_admin_bar_for_custom_roles');
  */
 function taptosell_redirect_non_admins_from_backend() {
     // 1. Do not redirect for AJAX requests OR REST API requests.
-    // We check for '/wp-json/' in the URL because 'admin_init'
-    // runs before the REST_REQUEST constant is defined.
-    if (wp_doing_ajax() || (strpos($_SERVER['REQUEST_URI'], '/wp-json/') !== false)) {
+    if (wp_doing_ajax() || (defined('REST_REQUEST') && REST_REQUEST)) {
         return;
     }
 
