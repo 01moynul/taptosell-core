@@ -158,7 +158,7 @@ function taptosell_enqueue_frontend_styles() {
             'taptosell_react_data', // The JavaScript object name React will look for
             array(
                 // Provides the correct base URL for the API
-                'api_url' => esc_url_raw( rest_url( 'taptosell/v1/' ) ),
+                'api_url' => esc_url_raw( home_url( '/index.php?rest_route=/taptosell/v1/' ) ),
                 // Creates a secure, one-time-use token for authentication
                 'nonce'   => wp_create_nonce( 'wp_rest' ) 
             )
