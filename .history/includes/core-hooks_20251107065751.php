@@ -404,7 +404,7 @@ add_filter('wp_nav_menu_objects', 'taptosell_filter_nav_menu_items', 10, 1);
  * @param WP_REST_Server $server The server object.
  * @return bool True if served, false otherwise.
  */
-function taptosell_add_cors_headers_for_dev( $served, $result, $request, $server ) {
+/*function taptosell_add_cors_headers_for_dev( $served, $result, $request, $server ) {
     // Check if the request is coming from our React dev server
     if ( isset( $_SERVER['HTTP_ORIGIN'] ) && $_SERVER['HTTP_ORIGIN'] === 'http://localhost:3000' ) {
         

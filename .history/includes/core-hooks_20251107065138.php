@@ -8,7 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * --- UPDATED: Create/update all custom roles and capabilities on plugin activation. ---
  * Now grants full product management capabilities to the Operational Admin.
  */
-/*function taptosell_add_custom_roles() {
+function taptosell_add_custom_roles() {
     // --- Role and capability definitions ---
     $custom_caps = [
         'manage_taptosell_settings' => true, 'manage_product_category' => true, 'edit_product_category' => true,
@@ -404,7 +404,7 @@ add_filter('wp_nav_menu_objects', 'taptosell_filter_nav_menu_items', 10, 1);
  * @param WP_REST_Server $server The server object.
  * @return bool True if served, false otherwise.
  */
-function taptosell_add_cors_headers_for_dev( $served, $result, $request, $server ) {
+/*function taptosell_add_cors_headers_for_dev( $served, $result, $request, $server ) {
     // Check if the request is coming from our React dev server
     if ( isset( $_SERVER['HTTP_ORIGIN'] ) && $_SERVER['HTTP_ORIGIN'] === 'http://localhost:3000' ) {
         

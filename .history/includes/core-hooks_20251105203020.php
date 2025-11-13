@@ -8,7 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * --- UPDATED: Create/update all custom roles and capabilities on plugin activation. ---
  * Now grants full product management capabilities to the Operational Admin.
  */
-/*function taptosell_add_custom_roles() {
+function taptosell_add_custom_roles() {
     // --- Role and capability definitions ---
     $custom_caps = [
         'manage_taptosell_settings' => true, 'manage_product_category' => true, 'edit_product_category' => true,

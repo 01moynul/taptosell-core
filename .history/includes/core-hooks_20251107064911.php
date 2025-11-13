@@ -8,7 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * --- UPDATED: Create/update all custom roles and capabilities on plugin activation. ---
  * Now grants full product management capabilities to the Operational Admin.
  */
-/*function taptosell_add_custom_roles() {
+function taptosell_add_custom_roles() {
     // --- Role and capability definitions ---
     $custom_caps = [
         'manage_taptosell_settings' => true, 'manage_product_category' => true, 'edit_product_category' => true,
@@ -434,7 +434,7 @@ add_filter( 'rest_pre_serve_request', 'taptosell_add_cors_headers_for_dev', 15, 
  * --- DEVELOPMENT ONLY: Force enable Application Passwords ---
  * Overrides potential theme/plugin conflicts when WP_ENVIRONMENT_TYPE is 'development'.
  */
-function taptosell_force_enable_app_passwords_for_dev( $available ) {
+/*function taptosell_force_enable_app_passwords_for_dev( $available ) {
     // Only force enable if the environment is explicitly set to development
     if ( defined('WP_ENVIRONMENT_TYPE') && WP_ENVIRONMENT_TYPE === 'development' ) {
         return true; // Force enable
@@ -442,3 +442,4 @@ function taptosell_force_enable_app_passwords_for_dev( $available ) {
     return $available; // Otherwise, respect the default WordPress behavior
 }
 add_filter( 'wp_is_application_passwords_available', 'taptosell_force_enable_app_passwords_for_dev', 99 ); // High priority
+*/

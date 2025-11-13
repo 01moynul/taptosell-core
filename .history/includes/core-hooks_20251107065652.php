@@ -73,7 +73,7 @@ register_activation_hook( TAPTOSELL_CORE_PATH . 'taptosell-core.php', 'taptosell
 /**
  * Remove custom user roles and all custom capabilities on plugin deactivation.
  */
-function taptosell_remove_custom_roles() {
+/*function taptosell_remove_custom_roles() {
     // --- Define All Custom Capabilities ---
     $custom_caps = [
         'manage_taptosell_settings', 'manage_product_category', 'edit_product_category',
@@ -102,7 +102,7 @@ register_deactivation_hook( TAPTOSELL_CORE_PATH . 'taptosell-core.php', 'taptose
 /**
  * Enqueue frontend styles and scripts.
  */
-function taptosell_enqueue_frontend_styles() {
+/*function taptosell_enqueue_frontend_styles() {
     // Enqueue the main plugin stylesheet
     wp_enqueue_style(
         'taptosell-core-styles',
@@ -187,7 +187,7 @@ add_action('wp_enqueue_scripts', 'taptosell_enqueue_frontend_styles');
 /**
  * --- NEW: Enqueues logout warning script on the FRONT-END for admins with pending tasks. ---
  */
-function taptosell_enqueue_frontend_logout_warning() {
+/*function taptosell_enqueue_frontend_logout_warning() {
     // Only run this for logged-in users who can edit other's posts (Admins and OAs)
     if (!is_user_logged_in() || !current_user_can('edit_others_posts')) {
         return;
@@ -236,7 +236,7 @@ add_action('wp_enqueue_scripts', 'taptosell_enqueue_frontend_logout_warning');
  * that needs to display dynamic data (like status messages) and tells caching systems
  * not to serve a stale version of the page.
  */
-function taptosell_prevent_dynamic_page_caching() {
+/*function taptosell_prevent_dynamic_page_caching() {
     // This is our master list of page titles that should NEVER be cached.
     $no_cache_pages = [
         'My Wallet',
@@ -266,7 +266,7 @@ add_action( 'template_redirect', 'taptosell_prevent_dynamic_page_caching' );
  * Now loads on both "Add New Product" and "Edit Product" pages.
  * Passes saved variation data to the script on the edit page.
  */
-function taptosell_enqueue_variations_script() {
+/*function taptosell_enqueue_variations_script() {
     // We need this script on both the 'Add New Product' and 'Edit Product' pages.
     if ( is_page('add-new-product') || is_page('edit-product') ) {
         
@@ -304,7 +304,7 @@ add_action('wp_enqueue_scripts', 'taptosell_enqueue_variations_script');
  * Consolidates all JavaScript variables (AJAX URL and nonces) into a single
  * localization object to prevent conflicts and ensure all data is available.
  */
-function taptosell_enqueue_oa_dashboard_scripts() {
+/*function taptosell_enqueue_oa_dashboard_scripts() {
     // Only load these scripts on our OA Dashboard page
     if ( is_page('operational-admin-dashboard') ) {
         wp_enqueue_script(
@@ -337,7 +337,7 @@ add_action('wp_enqueue_scripts', 'taptosell_enqueue_oa_dashboard_scripts');
  * @param array $sorted_menu_items The menu items, sorted by appearance order.
  * @return array The filtered menu items.
  */
-function taptosell_filter_nav_menu_items($sorted_menu_items) {
+/*function taptosell_filter_nav_menu_items($sorted_menu_items) {
     // Get the current user object and their roles
     $user = wp_get_current_user();
     $is_logged_in = $user->exists();
@@ -404,7 +404,7 @@ add_filter('wp_nav_menu_objects', 'taptosell_filter_nav_menu_items', 10, 1);
  * @param WP_REST_Server $server The server object.
  * @return bool True if served, false otherwise.
  */
-function taptosell_add_cors_headers_for_dev( $served, $result, $request, $server ) {
+/*function taptosell_add_cors_headers_for_dev( $served, $result, $request, $server ) {
     // Check if the request is coming from our React dev server
     if ( isset( $_SERVER['HTTP_ORIGIN'] ) && $_SERVER['HTTP_ORIGIN'] === 'http://localhost:3000' ) {
         

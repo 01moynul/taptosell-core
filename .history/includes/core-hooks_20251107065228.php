@@ -8,7 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * --- UPDATED: Create/update all custom roles and capabilities on plugin activation. ---
  * Now grants full product management capabilities to the Operational Admin.
  */
-/*function taptosell_add_custom_roles() {
+function taptosell_add_custom_roles() {
     // --- Role and capability definitions ---
     $custom_caps = [
         'manage_taptosell_settings' => true, 'manage_product_category' => true, 'edit_product_category' => true,
@@ -337,7 +337,7 @@ add_action('wp_enqueue_scripts', 'taptosell_enqueue_oa_dashboard_scripts');
  * @param array $sorted_menu_items The menu items, sorted by appearance order.
  * @return array The filtered menu items.
  */
-function taptosell_filter_nav_menu_items($sorted_menu_items) {
+/*function taptosell_filter_nav_menu_items($sorted_menu_items) {
     // Get the current user object and their roles
     $user = wp_get_current_user();
     $is_logged_in = $user->exists();
